@@ -48,7 +48,6 @@ router.post(
 // Upload / replace image
 router.post(
   "/:id/image",
-  upload.single("image"),
   uploadProductImage
 );
 
