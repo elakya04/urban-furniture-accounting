@@ -1,22 +1,24 @@
 import mongoose from "mongoose";
 
 const invoiceSchema = new mongoose.Schema({
-  invoice_number: { type: Number, required: true, unique: true },
+  inv_number: { type: String, required: true, unique: true },
   sales: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "SalesOrder",
-    required: true
+    required: false
   },
-  due_date: { type: Date, required: true },
-  invoice_date: { type: Date, required: true, default: Date.now },
+  customerName: { type: String, required: true },
+  due_date: { type: String, required: true },
+  invoice_date: { type: String, required: true, default: () => new Date().toISOString().split('T')[0] },
   amount_due: { type: Number, required: true, min: 0 },
   amount_paid: { type: Number, default: 0, min: 0 },
   total_amount: { type: Number, required: true, min: 0 },
   status: {
     type: String,
-    enum: ["PAID", "DUE", "OVERDUE"],
+    enum: ["PAID", "DUE", "OVERDUE", "CANCEL"],
     default: "DUE"
-  }
+  },
+  items: { type: Array, default: [] }
 }, { timestamps: true });
 
 export default mongoose.model("Invoice", invoiceSchema);

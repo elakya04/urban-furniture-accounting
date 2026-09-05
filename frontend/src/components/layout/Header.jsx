@@ -9,10 +9,14 @@ export const Header = ({ onNavigate }) => {
 
   const getRoleLabel = () => {
     if (!currentUser) return 'GUEST';
-    if (currentUser.role === 'CONTACT') {
-      return currentUser.contact_id === 'VENDOR' ? 'VENDOR PORTAL' : 'CUSTOMER PORTAL';
+    const type = currentUser.userType || currentUser.role;
+    if (type === 'CONTACT') {
+      const cr = currentUser.contactRole || currentUser.contact_id;
+      if (cr === 'VENDOR') return 'VENDOR PORTAL';
+      if (cr === 'BOTH') return 'CUSTOMER / VENDOR';
+      return 'CUSTOMER PORTAL';
     }
-    return currentUser.role;
+    return type || 'USER';
   };
 
   return (

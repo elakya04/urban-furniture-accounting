@@ -4,11 +4,22 @@ import { Table } from '../../components/common/Table';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
 import { OrderLineItemsTable } from '../../components/forms/OrderLineItemsTable';
-import { Plus, ShoppingCart, CheckCircle, FileText, ArrowRight, Printer } from 'lucide-react';
+import { Plus, ShoppingCart, CheckCircle, FileText, ArrowRight, XCircle } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 
 export const SalesOrdersPage = () => {
-  const { salesOrders, contacts, products, coa, analyticAccounts, addSalesOrder, confirmSalesOrder } = useApp();
+  const {
+    salesOrders,
+    contacts,
+    products,
+    coa,
+    analyticAccounts,
+    addSalesOrder,
+    confirmSalesOrder,
+    cancelSalesOrder,
+    createInvoiceFromSO
+  } = useApp();
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedSO, setSelectedSO] = useState(null);
 
@@ -25,12 +36,12 @@ export const SalesOrdersPage = () => {
     }
   ]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const custObj = contacts.find(c => c._id === customer);
     const total_amount = items.reduce((sum, i) => sum + Number(i.total || 0), 0);
 
-    addSalesOrder({
+    await addSalesOrder({
       customer,
       customerName: custObj?.name || 'Customer',
       items,
@@ -57,18 +68,31 @@ export const SalesOrdersPage = () => {
     {
       header: 'Actions',
       cell: (row) => (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
           {row.status === 'DRAFT' && (
             <button
               onClick={() => confirmSalesOrder(row._id)}
               className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors shadow-xs"
             >
-              <CheckCircle className="w-3.5 h-3.5" /> Confirm & Create Invoice
+              <CheckCircle className="w-3.5 h-3.5" /> Confirm
+            </button>
+          )}
+          {row.status === 'CONFIRMED' && (
+            <button
+              onClick={() => createInvoiceFromSO(row._id)}
+              className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium transition-colors shadow-xs"
+            >
+              <FileText className="w-3.5 h-3.5" /> Create Invoice
             </button>
           )}
           {row.status === 'INVOICE' && (
             <span className="text-xs text-sky-600 font-semibold flex items-center gap-1">
               <FileText className="w-3.5 h-3.5" /> Invoiced
+            </span>
+          )}
+          {row.status === 'CANCEL' && (
+            <span className="text-xs text-rose-500 font-semibold flex items-center gap-1">
+              <XCircle className="w-3.5 h-3.5" /> Cancelled
             </span>
           )}
         </div>
@@ -106,7 +130,7 @@ export const SalesOrdersPage = () => {
                 className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
               >
                 {contacts.map(c => (
-                  <option key={c._id} value={c._id}>{c.name} ({c.userType})</option>
+                  <option key={c._id} value={c._id}>{c.name} ({c.userType || 'CONTACT'})</option>
                 ))}
               </select>
             </div>
@@ -152,11 +176,27 @@ export const SalesOrdersPage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div className="flex items-center gap-2">
                 {selectedSO.status === 'DRAFT' && (
+                  <>
+                    <button
+                      onClick={() => { confirmSalesOrder(selectedSO._id); setSelectedSO(null); }}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-xs"
+                    >
+                      <CheckCircle className="w-4 h-4" /> Confirm Order
+                    </button>
+                    <button
+                      onClick={() => { cancelSalesOrder(selectedSO._id); setSelectedSO(null); }}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-semibold rounded-lg"
+                    >
+                      <XCircle className="w-4 h-4" /> Cancel
+                    </button>
+                  </>
+                )}
+                {selectedSO.status === 'CONFIRMED' && (
                   <button
-                    onClick={() => { confirmSalesOrder(selectedSO._id); setSelectedSO(null); }}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-xs"
+                    onClick={() => { createInvoiceFromSO(selectedSO._id); setSelectedSO(null); }}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs"
                   >
-                    <CheckCircle className="w-4 h-4" /> Create Invoice
+                    <FileText className="w-4 h-4" /> Create Invoice
                   </button>
                 )}
                 {selectedSO.status === 'INVOICE' && (

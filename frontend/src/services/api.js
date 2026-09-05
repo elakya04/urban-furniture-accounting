@@ -2,34 +2,45 @@
 
 const BASE_URL = '/api';
 
-async function fetchJSON(url, options = {}) {
+async function fetchJSON(url, options = {}, throwOnError = false) {
   try {
+    const token = localStorage.getItem('uf_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {})
+    };
+
+    console.log(`[API REQUEST] ${options.method || 'GET'} ${BASE_URL}${url}`);
     const res = await fetch(`${BASE_URL}${url}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      },
-      ...options
+      ...options,
+      headers
     });
+
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.message || `API Error: ${res.status}`);
+      console.warn(`[API ERROR] ${options.method || 'GET'} ${BASE_URL}${url} -> ${res.status}:`, data.message);
+      const err = new Error(data.message || `API Error: ${res.status}`);
+      err.status = res.status;
+      if (throwOnError) throw err;
+      return null;
     }
-    return await res.json();
+
+    console.log(`[API SUCCESS] ${options.method || 'GET'} ${BASE_URL}${url}`, data);
+    return data;
   } catch (err) {
-    // Return null to trigger fallback state handling in AppContext
-    console.warn(`[API Client Warning] Backend endpoint ${url} unavailable, using reactive state layer:`, err.message);
+    if (throwOnError) throw err;
+    console.warn(`[API Client Warning] Backend endpoint ${url} unavailable:`, err.message);
     return null;
   }
 }
 
 export const api = {
   // Authentication
-  login: (credentials) => fetchJSON('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
-  register: (userData) => fetchJSON('/auth/register', { method: 'POST', body: JSON.stringify(userData) }),
-  registerContact: (contactData) => fetchJSON('/auth/register-contact', { method: 'POST', body: JSON.stringify(contactData) }),
+  login: (credentials) => fetchJSON('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }, true),
+  register: (userData) => fetchJSON('/auth/register', { method: 'POST', body: JSON.stringify(userData) }, true),
   logout: () => fetchJSON('/auth/logout', { method: 'POST' }),
-  getMe: () => fetchJSON('/auth/me'),
+  getMe: () => fetchJSON('/auth/me', { method: 'GET' }),
 
   // Users
   getUsers: () => fetchJSON('/users'),

@@ -107,53 +107,109 @@ export const AppProvider = ({ children }) => {
     api.createAnalyticAccount(data);
   };
 
-  // Sales Orders & Invoices Workflow
-  const addSalesOrder = (data) => {
-    const nextSeq = `S${String(salesOrders.length + 1).padStart(5, '0')}`;
-    const newSO = {
-      ...data,
-      _id: `so_${Date.now()}`,
-      so_number: nextSeq,
-      status: 'DRAFT',
-      date: new Date().toISOString().split('T')[0]
+  // Auto-fetch Sales Orders from backend API on mount
+  useEffect(() => {
+    const fetchSalesOrders = async () => {
+      try {
+        const data = await api.getSalesOrders();
+        if (Array.isArray(data) && data.length > 0) {
+          setSalesOrders(data);
+        }
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load sales orders from API:', err.message);
+      }
     };
-    setSalesOrders(prev => [newSO, ...prev]);
-    showToast(`Sales Order ${nextSeq} created in Draft`, 'success');
-    addAuditLog('CREATE_SO', `Created Sales Order ${nextSeq}`);
-    api.createSalesOrder(newSO);
-    return newSO;
+    fetchSalesOrders();
+  }, []);
+
+  // Sales Orders & Invoices Workflow
+  const addSalesOrder = async (data) => {
+    const nextSeq = `S${String(salesOrders.length + 1).padStart(5, '0')}`;
+    const payload = {
+      ...data,
+      so_number: data.so_number || nextSeq,
+      customerName: data.customerName || 'Customer',
+      total_amount: Number(data.total_amount || 0),
+      items: data.items || []
+    };
+
+    try {
+      const res = await api.createSalesOrder(payload);
+      const created = res?.salesOrder || { ...payload, _id: `so_${Date.now()}`, status: 'DRAFT' };
+      setSalesOrders(prev => [created, ...prev]);
+      showToast(`Sales Order ${created.so_number} created in Draft`, 'success');
+      addAuditLog('CREATE_SO', `Created Sales Order ${created.so_number}`);
+      return created;
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error creating SO on backend:', err.message);
+      const fallbackSO = { ...payload, _id: `so_${Date.now()}`, status: 'DRAFT' };
+      setSalesOrders(prev => [fallbackSO, ...prev]);
+      showToast(`Sales Order ${nextSeq} created locally`, 'info');
+      return fallbackSO;
+    }
   };
 
-  const confirmSalesOrder = (soId) => {
+  const confirmSalesOrder = async (soId) => {
     const so = salesOrders.find(s => s._id === soId);
     if (!so) return;
 
-    // Update SO status
+    try {
+      await api.confirmSalesOrder(soId);
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error confirming SO on backend:', err.message);
+    }
+
     setSalesOrders(prev => prev.map(s => s._id === soId ? { ...s, status: 'CONFIRMED' } : s));
+    showToast(`Sales Order ${so.so_number} status updated to CONFIRMED.`, 'success');
+    addAuditLog('CONFIRM_SO', `Confirmed Sales Order ${so.so_number}`);
+  };
 
-    // Auto-generate Invoice
-    const nextInvSeq = `INV/2026/${String(invoices.length + 1).padStart(4, '0')}`;
-    const newInvoice = {
-      _id: `inv_${Date.now()}`,
-      inv_number: nextInvSeq,
-      sales: soId,
-      customerName: so.customerName || 'Customer',
-      invoice_date: new Date().toISOString().split('T')[0],
-      due_date: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
-      total_amount: so.total_amount,
-      amount_paid: 0,
-      amount_due: so.total_amount,
-      status: 'DUE',
-      items: so.items
-    };
+  const cancelSalesOrder = async (soId) => {
+    const so = salesOrders.find(s => s._id === soId);
+    if (!so) return;
 
-    setInvoices(prev => [newInvoice, ...prev]);
+    try {
+      await api.cancelSalesOrder(soId);
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error cancelling SO on backend:', err.message);
+    }
+
+    setSalesOrders(prev => prev.map(s => s._id === soId ? { ...s, status: 'CANCEL' } : s));
+    showToast(`Sales Order ${so.so_number} cancelled.`, 'info');
+    addAuditLog('CANCEL_SO', `Cancelled Sales Order ${so.so_number}`);
+  };
+
+  const createInvoiceFromSO = async (soId) => {
+    const so = salesOrders.find(s => s._id === soId);
+    if (!so) return;
+
+    try {
+      const res = await api.createInvoiceFromSO(soId);
+      if (res?.invoice) {
+        setInvoices(prev => [res.invoice, ...prev]);
+      }
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error generating invoice from SO on backend:', err.message);
+      const nextInvSeq = `INV/2026/${String(invoices.length + 1).padStart(4, '0')}`;
+      const fallbackInv = {
+        _id: `inv_${Date.now()}`,
+        inv_number: nextInvSeq,
+        sales: soId,
+        customerName: so.customerName || 'Customer',
+        invoice_date: new Date().toISOString().split('T')[0],
+        due_date: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
+        total_amount: so.total_amount,
+        amount_paid: 0,
+        amount_due: so.total_amount,
+        status: 'DUE',
+        items: so.items
+      };
+      setInvoices(prev => [fallbackInv, ...prev]);
+    }
+
     setSalesOrders(prev => prev.map(s => s._id === soId ? { ...s, status: 'INVOICE' } : s));
-
-    showToast(`Sales Order ${so.so_number} confirmed! Invoice ${nextInvSeq} generated.`, 'success');
-    addAuditLog('CONFIRM_SO', `Confirmed ${so.so_number} & generated invoice ${nextInvSeq}`);
-    api.confirmSalesOrder(soId);
-    api.createInvoiceFromSO(soId);
+    showToast(`Sales Order ${so.so_number} converted to Invoice!`, 'success');
+    addAuditLog('INVOICE_SO', `Generated invoice from Sales Order ${so.so_number}`);
   };
 
   // Confirm Invoice -> Auto Journal Entry (Debit Debtors, Credit Sales Income)
@@ -454,6 +510,8 @@ export const AppProvider = ({ children }) => {
         addAnalyticAccount,
         addSalesOrder,
         confirmSalesOrder,
+        cancelSalesOrder,
+        createInvoiceFromSO,
         confirmInvoice,
         addPurchaseOrder,
         confirmPurchaseOrder,
