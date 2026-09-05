@@ -14,6 +14,8 @@ import contactRouter from "./routes/contactRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import journalEntryRoutes from "./routes/journalEntryRoutes.js";
 import invoiceRoutes from "./routes/invoiceRoutes.js";
+import ledgerRoutes from "./routes/ledgerRoutes.js";
+import budgetRoutes from "./routes/budgetRoutes.js";
 
 
 dotenv.config();
@@ -34,7 +36,8 @@ app.use("/api/me", meVendorBillRoutes);
 app.use("/api/contacts", contactRouter);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/journal-entries", journalEntryRoutes);
-
+app.use("/api/ledger",ledgerRoutes);
+app.use("/api/budgets",budgetRoutes);
 
 const PORT = process.env.PORT;
 

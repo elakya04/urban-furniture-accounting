@@ -20,6 +20,11 @@ const budgetSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true
+  },
+  status: {
+    type: String,
+    enum: ["DRAFT", "CONFIRMED", "CANCELLED"],
+    default: "DRAFT"
   }
 }, { timestamps: true });
 
