@@ -25,21 +25,22 @@ export const createProduct = async (req, res) => {
       });
     }
 
-    let productImage = "https://via.placeholder.com/150";
+    // let productImage = "https://via.placeholder.com/150";
 
     // Image received from frontend
-    if (req.file) {
-      const file = `data:${req.file.mimetype};base64,${req.file.buffer.toString(
-        "base64"
-      )}`;
+    // if (req.file) {
+    //   const file = `data:${req.file.mimetype};base64,${req.file.buffer.toString(
+    //     "base64"
+    //   )}`;
 
-      const result = await cloudinary.uploader.upload(file, {
-        folder: "urban-furniture/products",
-        resource_type: "image"
-      });
+    //   const result = await cloudinary.uploader.upload(file, {
+    //     folder: "urban-furniture/products",
+    //     resource_type: "image"
+    //   });
 
-      productImage = result.secure_url;
-    }
+    //   productImage = result.secure_url;
+    // }
+    const productImage = req.body.profile;
 
     const product = await Product.create({
       productName,

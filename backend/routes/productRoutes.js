@@ -10,13 +10,14 @@ import {
 } from "../controllers/productController.js";
 
 import upload from "../middleware/upload.js";
+import uploadProfileImage from "../middleware/upload.js";
 
 const router = express.Router();
 
 // Create product + image
 router.post(
   "/",
-  upload.single("image"),
+  uploadProfileImage,
   createProduct
 );
 
