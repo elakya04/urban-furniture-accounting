@@ -39,14 +39,15 @@ const journalEntrySchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-journalEntrySchema.pre("validate", function(next) {
-  const debit = this.journalItems.reduce((sum, item) => sum + item.debit, 0);
-  const credit = this.journalItems.reduce((sum, item) => sum + item.credit, 0);
+journalEntrySchema.pre("validate", function() {
+  if (this.journalItems && this.journalItems.length > 0) {
+    const debit = this.journalItems.reduce((sum, item) => sum + (item.debit || 0), 0);
+    const credit = this.journalItems.reduce((sum, item) => sum + (item.credit || 0), 0);
 
-  if (debit !== credit) {
-    return next(new Error("Total debit must equal total credit"));
+    if (Math.abs(debit - credit) > 0.001) {
+      throw new Error("Total debit must equal total credit");
+    }
   }
-  next();
 });
 
 export default mongoose.model("JournalEntry", journalEntrySchema);
