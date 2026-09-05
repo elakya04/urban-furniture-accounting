@@ -13,6 +13,7 @@ import meVendorBillRoutes from "./routes/meVendorBillRoutes.js";
 import contactRouter from "./routes/contactRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import journalEntryRoutes from "./routes/journalEntryRoutes.js";
+import invoiceRoutes from "./routes/invoiceRoutes.js";
 
 
 dotenv.config();
