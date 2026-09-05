@@ -6,9 +6,10 @@ import { Badge } from '../../components/common/Badge';
 import { Receipt, CheckCircle, CreditCard, Printer, Mail, FileText, ArrowRight } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { generateInvoicePDF } from '../../utils/pdfExporter';
+import { api } from '../../services/api';
 
 export const InvoicesPage = () => {
-  const { invoices, confirmInvoice, processPayment, showToast } = useApp();
+  const { invoices, confirmInvoice, cancelInvoice, processPayment, showToast } = useApp();
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
 
@@ -18,8 +19,26 @@ export const InvoicesPage = () => {
     note: 'Payment received via Bank'
   });
 
-  const handlePayClick = (inv) => {
+  const handlePrintPDF = async (inv) => {
+    try {
+      console.log('[LOKI AUDIT LOG] Fetching Invoice PDF payload from backend for:', inv.inv_number);
+      const pdfMeta = await api.getInvoicePDF(inv._id);
+      generateInvoicePDF(pdfMeta || inv, inv.customerName);
+    } catch (err) {
+      console.warn('[LOKI AUDIT LOG] PDF API fallback:', err.message);
+      generateInvoicePDF(inv, inv.customerName);
+    }
+  };
+
+  const handlePayClick = async (inv) => {
     setSelectedInvoice(inv);
+    try {
+      console.log('[LOKI AUDIT LOG] Querying backend payments for invoice:', inv.inv_number);
+      await api.getInvoicePayments(inv._id);
+    } catch (err) {
+      console.warn('[LOKI AUDIT LOG] Payments lookup error:', err.message);
+    }
+
     setPayFormData({
       payment_method: 'BANK',
       amount: inv.amount_due ?? inv.total_amount,
@@ -83,7 +102,7 @@ export const InvoicesPage = () => {
           )}
 
           <button
-            onClick={() => generateInvoicePDF(row, row.customerName)}
+            onClick={() => handlePrintPDF(row)}
             title="Download PDF Invoice"
             className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
           >
@@ -129,8 +148,17 @@ export const InvoicesPage = () => {
                   </button>
                 )}
 
+                {selectedInvoice.status !== 'CANCEL' && selectedInvoice.status !== 'PAID' && (
+                  <button
+                    onClick={() => { cancelInvoice(selectedInvoice._id); setSelectedInvoice(null); }}
+                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-medium rounded-lg"
+                  >
+                    Cancel Invoice
+                  </button>
+                )}
+
                 <button
-                  onClick={() => generateInvoicePDF(selectedInvoice, selectedInvoice.customerName)}
+                  onClick={() => handlePrintPDF(selectedInvoice)}
                   className="flex items-center gap-1 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg"
                 >
                   <Printer className="w-4 h-4 text-slate-500" /> Print PDF
