@@ -40,11 +40,11 @@ export const getDashboardSummary = async (req, res) => {
       timestamp: new Date().toISOString()
     }));
 
-    const invoices = await Invoice.find(invoiceFilter);
-    const vendorBills = await VendorBill.find(billFilter);
-    const budgets = await Budget.find({
-      status: "CONFIRMED"
-    });
+    const [invoices, vendorBills, budgets] = await Promise.all([
+      Invoice.find(invoiceFilter),
+      VendorBill.find(billFilter),
+      Budget.find({ status: "CONFIRMED" })
+    ]);
 
     console.log(JSON.stringify({
       level: "info",
@@ -97,12 +97,6 @@ export const getDashboardSummary = async (req, res) => {
       totalBudget,
       achievedBudget,
       remainingBudget,
-      timestamp: new Date().toISOString()
-    }));
-
-    console.log(JSON.stringify({
-      level: "info",
-      event: "dashboard_summary_success",
       timestamp: new Date().toISOString()
     }));
 

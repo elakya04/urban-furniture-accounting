@@ -18,6 +18,7 @@ import ledgerRoutes from "./routes/ledgerRoutes.js";
 import budgetRoutes from "./routes/budgetRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import requestLogger from "./middleware/logger.js";
 
 
 dotenv.config();
@@ -25,6 +26,7 @@ dotenv.config();
 const app = express();
 
 app.use(express.json());
+app.use(requestLogger);
 app.use("/api/auth", authRouter);
 app.use("/api/sales-orders", salesOrderRouter);
 app.use("/api/invoices", invoiceRoutes);

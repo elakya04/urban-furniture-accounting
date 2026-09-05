@@ -3,13 +3,25 @@ import AnalyticsAccount from "../models/AnalyticsAccount.js";
 
 // POST /api/analytic-accounts
 export const createAnalyticAccount = async (req, res) => {
-  try {
-    const {
-      name,
-      type
-    } = req.body;
+  const { name, type } = req.body;
 
+  console.log(JSON.stringify({
+    level: "info",
+    event: "analytic_account_create_request",
+    name,
+    type,
+    timestamp: new Date().toISOString()
+  }));
+
+  try {
     if (!name || !type) {
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "analytic_account_create_validation_failed",
+        message: "name and type are required",
+        timestamp: new Date().toISOString()
+      }));
+
       return res.status(400).json({
         success: false,
         message: "name and type are required"
@@ -24,6 +36,14 @@ export const createAnalyticAccount = async (req, res) => {
     });
 
     if (existingAccount) {
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "analytic_account_duplicate",
+        name,
+        existingAccountId: existingAccount._id.toString(),
+        timestamp: new Date().toISOString()
+      }));
+
       return res.status(409).json({
         success: false,
         message: "Analytic account already exists"
@@ -35,6 +55,15 @@ export const createAnalyticAccount = async (req, res) => {
       type
     });
 
+    console.log(JSON.stringify({
+      level: "info",
+      event: "analytic_account_created",
+      analyticAccountId: analyticAccount._id.toString(),
+      name: analyticAccount.name,
+      type: analyticAccount.type,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(201).json({
       success: true,
       message: "Analytic account created successfully",
@@ -42,6 +71,15 @@ export const createAnalyticAccount = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "analytic_account_create_failed",
+      name,
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(500).json({
       success: false,
       message: "Failed to create analytic account",
@@ -53,12 +91,17 @@ export const createAnalyticAccount = async (req, res) => {
 
 // GET /api/analytic-accounts
 export const getAnalyticAccounts = async (req, res) => {
-  try {
-    const {
-      type,
-      search
-    } = req.query;
+  const { type, search } = req.query;
 
+  console.log(JSON.stringify({
+    level: "info",
+    event: "analytic_accounts_fetch_request",
+    type,
+    search,
+    timestamp: new Date().toISOString()
+  }));
+
+  try {
     const filter = {};
 
     if (type) {
@@ -72,8 +115,22 @@ export const getAnalyticAccounts = async (req, res) => {
       };
     }
 
+    console.log(JSON.stringify({
+      level: "info",
+      event: "analytic_accounts_query",
+      filter,
+      timestamp: new Date().toISOString()
+    }));
+
     const accounts = await AnalyticsAccount.find(filter)
       .sort({ name: 1 });
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "analytic_accounts_fetched",
+      count: accounts.length,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       success: true,
@@ -82,6 +139,14 @@ export const getAnalyticAccounts = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "analytic_accounts_fetch_failed",
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(500).json({
       success: false,
       message: "Failed to fetch analytic accounts",
@@ -93,15 +158,40 @@ export const getAnalyticAccounts = async (req, res) => {
 
 // GET /api/analytic-accounts/:id
 export const getAnalyticAccountById = async (req, res) => {
+  const analyticAccountId = req.params.id;
+
+  console.log(JSON.stringify({
+    level: "info",
+    event: "analytic_account_fetch_request",
+    analyticAccountId,
+    timestamp: new Date().toISOString()
+  }));
+
   try {
-    const account = await AnalyticsAccount.findById(req.params.id);
+    const account = await AnalyticsAccount.findById(analyticAccountId);
 
     if (!account) {
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "analytic_account_not_found",
+        analyticAccountId,
+        timestamp: new Date().toISOString()
+      }));
+
       return res.status(404).json({
         success: false,
         message: "Analytic account not found"
       });
     }
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "analytic_account_fetched",
+      analyticAccountId: account._id.toString(),
+      name: account.name,
+      type: account.type,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       success: true,
@@ -109,6 +199,15 @@ export const getAnalyticAccountById = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "analytic_account_fetch_failed",
+      analyticAccountId,
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(500).json({
       success: false,
       message: "Failed to fetch analytic account",
@@ -120,12 +219,19 @@ export const getAnalyticAccountById = async (req, res) => {
 
 // PATCH /api/analytic-accounts/:id
 export const updateAnalyticAccount = async (req, res) => {
-  try {
-    const {
-      name,
-      type
-    } = req.body;
+  const analyticAccountId = req.params.id;
+  const { name, type } = req.body;
 
+  console.log(JSON.stringify({
+    level: "info",
+    event: "analytic_account_update_request",
+    analyticAccountId,
+    name,
+    type,
+    timestamp: new Date().toISOString()
+  }));
+
+  try {
     const updates = {};
 
     if (name !== undefined) {
@@ -136,8 +242,16 @@ export const updateAnalyticAccount = async (req, res) => {
       updates.type = type;
     }
 
+    console.log(JSON.stringify({
+      level: "info",
+      event: "analytic_account_update_started",
+      analyticAccountId,
+      updatedFields: Object.keys(updates),
+      timestamp: new Date().toISOString()
+    }));
+
     const account = await AnalyticsAccount.findByIdAndUpdate(
-      req.params.id,
+      analyticAccountId,
       updates,
       {
         new: true,
@@ -146,11 +260,26 @@ export const updateAnalyticAccount = async (req, res) => {
     );
 
     if (!account) {
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "analytic_account_update_not_found",
+        analyticAccountId,
+        timestamp: new Date().toISOString()
+      }));
+
       return res.status(404).json({
         success: false,
         message: "Analytic account not found"
       });
     }
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "analytic_account_updated",
+      analyticAccountId: account._id.toString(),
+      updatedFields: Object.keys(updates),
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       success: true,
@@ -159,6 +288,15 @@ export const updateAnalyticAccount = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "analytic_account_update_failed",
+      analyticAccountId,
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(500).json({
       success: false,
       message: "Failed to update analytic account",

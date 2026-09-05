@@ -4,13 +4,25 @@ import JournalEntry from "../models/JournalEntry.js";
 
 // POST /api/accounts
 export const createAccount = async (req, res) => {
-  try {
-    const {
-      accountName,
-      type
-    } = req.body;
+  const { accountName, type } = req.body;
 
+  console.log(JSON.stringify({
+    level: "info",
+    event: "account_create_request",
+    accountName,
+    type,
+    timestamp: new Date().toISOString()
+  }));
+
+  try {
     if (!accountName || !type) {
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "account_create_validation_failed",
+        message: "accountName and type are required",
+        timestamp: new Date().toISOString()
+      }));
+
       return res.status(400).json({
         success: false,
         message: "accountName and type are required"
@@ -25,6 +37,14 @@ export const createAccount = async (req, res) => {
     });
 
     if (existingAccount) {
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "account_create_duplicate",
+        accountName,
+        existingAccountId: existingAccount._id.toString(),
+        timestamp: new Date().toISOString()
+      }));
+
       return res.status(409).json({
         success: false,
         message: "Account already exists"
@@ -36,6 +56,15 @@ export const createAccount = async (req, res) => {
       type
     });
 
+    console.log(JSON.stringify({
+      level: "info",
+      event: "account_created",
+      accountId: account._id.toString(),
+      accountName: account.accountName,
+      type: account.type,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(201).json({
       success: true,
       message: "Account created successfully",
@@ -43,6 +72,15 @@ export const createAccount = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "account_create_failed",
+      accountName,
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(500).json({
       success: false,
       message: "Failed to create account",
@@ -54,13 +92,18 @@ export const createAccount = async (req, res) => {
 
 // GET /api/accounts
 export const getAccounts = async (req, res) => {
-  try {
-    const {
-      type,
-      search,
-      isActive
-    } = req.query;
+  const { type, search, isActive } = req.query;
 
+  console.log(JSON.stringify({
+    level: "info",
+    event: "accounts_fetch_request",
+    type,
+    search,
+    isActive,
+    timestamp: new Date().toISOString()
+  }));
+
+  try {
     const filter = {};
 
     if (type) {
@@ -78,8 +121,22 @@ export const getAccounts = async (req, res) => {
       };
     }
 
+    console.log(JSON.stringify({
+      level: "info",
+      event: "accounts_query",
+      filter,
+      timestamp: new Date().toISOString()
+    }));
+
     const accounts = await COA.find(filter)
       .sort({ accountName: 1 });
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "accounts_fetched",
+      count: accounts.length,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       success: true,
@@ -88,6 +145,14 @@ export const getAccounts = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "accounts_fetch_failed",
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(500).json({
       success: false,
       message: "Failed to fetch accounts",
@@ -99,15 +164,39 @@ export const getAccounts = async (req, res) => {
 
 // GET /api/accounts/:id
 export const getAccountById = async (req, res) => {
+  const accountId = req.params.id;
+
+  console.log(JSON.stringify({
+    level: "info",
+    event: "account_fetch_request",
+    accountId,
+    timestamp: new Date().toISOString()
+  }));
+
   try {
-    const account = await COA.findById(req.params.id);
+    const account = await COA.findById(accountId);
 
     if (!account) {
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "account_not_found",
+        accountId,
+        timestamp: new Date().toISOString()
+      }));
+
       return res.status(404).json({
         success: false,
         message: "Account not found"
       });
     }
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "account_fetched",
+      accountId: account._id.toString(),
+      accountName: account.accountName,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       success: true,
@@ -115,6 +204,15 @@ export const getAccountById = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "account_fetch_failed",
+      accountId,
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(500).json({
       success: false,
       message: "Failed to fetch account",
@@ -126,12 +224,19 @@ export const getAccountById = async (req, res) => {
 
 // PATCH /api/accounts/:id
 export const updateAccount = async (req, res) => {
-  try {
-    const {
-      accountName,
-      type
-    } = req.body;
+  const accountId = req.params.id;
+  const { accountName, type } = req.body;
 
+  console.log(JSON.stringify({
+    level: "info",
+    event: "account_update_request",
+    accountId,
+    accountName,
+    type,
+    timestamp: new Date().toISOString()
+  }));
+
+  try {
     const updates = {};
 
     if (accountName !== undefined) {
@@ -143,7 +248,7 @@ export const updateAccount = async (req, res) => {
     }
 
     const account = await COA.findByIdAndUpdate(
-      req.params.id,
+      accountId,
       updates,
       {
         new: true,
@@ -152,11 +257,26 @@ export const updateAccount = async (req, res) => {
     );
 
     if (!account) {
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "account_update_not_found",
+        accountId,
+        timestamp: new Date().toISOString()
+      }));
+
       return res.status(404).json({
         success: false,
         message: "Account not found"
       });
     }
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "account_updated",
+      accountId: account._id.toString(),
+      updatedFields: Object.keys(updates),
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       success: true,
@@ -165,6 +285,15 @@ export const updateAccount = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "account_update_failed",
+      accountId,
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(500).json({
       success: false,
       message: "Failed to update account",
@@ -176,10 +305,27 @@ export const updateAccount = async (req, res) => {
 
 // PATCH /api/accounts/:id/status
 export const updateAccountStatus = async (req, res) => {
-  try {
-    const { isActive } = req.body;
+  const accountId = req.params.id;
+  const { isActive } = req.body;
 
+  console.log(JSON.stringify({
+    level: "info",
+    event: "account_status_update_request",
+    accountId,
+    isActive,
+    timestamp: new Date().toISOString()
+  }));
+
+  try {
     if (typeof isActive !== "boolean") {
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "account_status_validation_failed",
+        accountId,
+        receivedValue: isActive,
+        timestamp: new Date().toISOString()
+      }));
+
       return res.status(400).json({
         success: false,
         message: "isActive must be a boolean"
@@ -187,7 +333,7 @@ export const updateAccountStatus = async (req, res) => {
     }
 
     const account = await COA.findByIdAndUpdate(
-      req.params.id,
+      accountId,
       { isActive },
       {
         new: true,
@@ -196,11 +342,26 @@ export const updateAccountStatus = async (req, res) => {
     );
 
     if (!account) {
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "account_status_not_found",
+        accountId,
+        timestamp: new Date().toISOString()
+      }));
+
       return res.status(404).json({
         success: false,
         message: "Account not found"
       });
     }
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "account_status_updated",
+      accountId: account._id.toString(),
+      isActive: account.isActive,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       success: true,
@@ -209,6 +370,15 @@ export const updateAccountStatus = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "account_status_update_failed",
+      accountId,
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(500).json({
       success: false,
       message: "Failed to update account status",
@@ -220,12 +390,29 @@ export const updateAccountStatus = async (req, res) => {
 
 // GET /api/accounts/:id/ledger
 export const getAccountLedger = async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
+  const accountId = req.params.id;
+  const { startDate, endDate } = req.query;
 
-    const account = await COA.findById(req.params.id);
+  console.log(JSON.stringify({
+    level: "info",
+    event: "account_ledger_request",
+    accountId,
+    startDate,
+    endDate,
+    timestamp: new Date().toISOString()
+  }));
+
+  try {
+    const account = await COA.findById(accountId);
 
     if (!account) {
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "ledger_account_not_found",
+        accountId,
+        timestamp: new Date().toISOString()
+      }));
+
       return res.status(404).json({
         success: false,
         message: "Account not found"
@@ -251,21 +438,27 @@ export const getAccountLedger = async (req, res) => {
       }
     }
 
+    console.log(JSON.stringify({
+      level: "info",
+      event: "ledger_query_started",
+      accountId,
+      accountName: account.accountName,
+      dateFilter: match.date || null,
+      timestamp: new Date().toISOString()
+    }));
+
     const ledger = await JournalEntry.aggregate([
       {
         $match: match
       },
-
       {
         $unwind: "$journalItems"
       },
-
       {
         $match: {
           "journalItems.account": account._id
         }
       },
-
       {
         $lookup: {
           from: "journals",
@@ -274,14 +467,12 @@ export const getAccountLedger = async (req, res) => {
           as: "journal"
         }
       },
-
       {
         $unwind: {
           path: "$journal",
           preserveNullAndEmptyArrays: true
         }
       },
-
       {
         $project: {
           _id: 1,
@@ -290,20 +481,26 @@ export const getAccountLedger = async (req, res) => {
           sourceType: 1,
           sourceId: 1,
           status: 1,
-
           journal: "$journal.journalName",
-
           debit: "$journalItems.debit",
           credit: "$journalItems.credit"
         }
       },
-
       {
         $sort: {
           date: 1
         }
       }
     ]);
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "ledger_entries_fetched",
+      accountId,
+      accountName: account.accountName,
+      entryCount: ledger.length,
+      timestamp: new Date().toISOString()
+    }));
 
     let balance = 0;
 
@@ -316,6 +513,16 @@ export const getAccountLedger = async (req, res) => {
       };
     });
 
+    console.log(JSON.stringify({
+      level: "info",
+      event: "ledger_calculated",
+      accountId,
+      accountName: account.accountName,
+      entryCount: result.length,
+      finalBalance: balance,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(200).json({
       success: true,
       account: {
@@ -327,6 +534,15 @@ export const getAccountLedger = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "ledger_fetch_failed",
+      accountId,
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(500).json({
       success: false,
       message: "Failed to fetch account ledger",

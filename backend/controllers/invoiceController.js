@@ -5,93 +5,288 @@ import Payment from "../models/Payment.js";
 // Helper function to find Invoice by ObjectId, string _id, or inv_number
 async function findInvoiceByIdOrNumber(id) {
   if (!id) return null;
+
   if (mongoose.isValidObjectId(id)) {
     const inv = await Invoice.findById(id);
     if (inv) return inv;
   }
+
   return await Invoice.findOne({
     $or: [{ _id: id }, { inv_number: id }]
   });
 }
 
-// GET /api/invoices - Fetch all invoices
+
+// GET /api/invoices
 export async function getInvoices(req, res) {
+  console.log(JSON.stringify({
+    level: "info",
+    event: "invoices_fetch_request",
+    timestamp: new Date().toISOString()
+  }));
+
   try {
-    const invoices = await Invoice.find().sort({ createdAt: -1 });
+    const invoices = await Invoice.find()
+      .sort({ createdAt: -1 });
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "invoices_fetched",
+      count: invoices.length,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(200).json(invoices);
+
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    console.error(JSON.stringify({
+      level: "error",
+      event: "invoices_fetch_failed",
+      message: err.message,
+      stack: err.stack,
+      timestamp: new Date().toISOString()
+    }));
+
+    return res.status(500).json({
+      message: err.message
+    });
   }
 }
 
-// GET /api/invoices/:id - Get single invoice by ID or invoice_number
+
+// GET /api/invoices/:id
 export async function getInvoiceById(req, res) {
+  const invoiceId = req.params.id;
+
+  console.log(JSON.stringify({
+    level: "info",
+    event: "invoice_fetch_request",
+    invoiceId,
+    timestamp: new Date().toISOString()
+  }));
+
   try {
-    const invoice = await findInvoiceByIdOrNumber(req.params.id);
+    const invoice = await findInvoiceByIdOrNumber(invoiceId);
+
     if (!invoice) {
-      return res.status(404).json({ message: "Invoice not found" });
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "invoice_not_found",
+        invoiceId,
+        timestamp: new Date().toISOString()
+      }));
+
+      return res.status(404).json({
+        message: "Invoice not found"
+      });
     }
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "invoice_fetched",
+      invoiceId: invoice._id.toString(),
+      invoiceNumber: invoice.inv_number,
+      status: invoice.status,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(200).json(invoice);
+
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    console.error(JSON.stringify({
+      level: "error",
+      event: "invoice_fetch_failed",
+      invoiceId,
+      message: err.message,
+      stack: err.stack,
+      timestamp: new Date().toISOString()
+    }));
+
+    return res.status(500).json({
+      message: err.message
+    });
   }
 }
 
-// POST /api/invoices/:id/confirm - Confirm invoice
+
+// POST /api/invoices/:id/confirm
 export async function confirmInvoice(req, res) {
+  const invoiceId = req.params.id;
+
+  console.log(JSON.stringify({
+    level: "info",
+    event: "invoice_confirm_request",
+    invoiceId,
+    timestamp: new Date().toISOString()
+  }));
+
   try {
-    const invoice = await findInvoiceByIdOrNumber(req.params.id);
+    const invoice = await findInvoiceByIdOrNumber(invoiceId);
+
     if (!invoice) {
-      return res.status(404).json({ message: "Invoice not found" });
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "invoice_confirm_not_found",
+        invoiceId,
+        timestamp: new Date().toISOString()
+      }));
+
+      return res.status(404).json({
+        message: "Invoice not found"
+      });
     }
 
-    invoice.status = invoice.amount_due === 0 ? "PAID" : "DUE";
+    const previousStatus = invoice.status;
+
+    invoice.status = invoice.amount_due === 0
+      ? "PAID"
+      : "DUE";
+
     await invoice.save();
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "invoice_confirmed",
+      invoiceId: invoice._id.toString(),
+      invoiceNumber: invoice.inv_number,
+      previousStatus,
+      newStatus: invoice.status,
+      totalAmount: invoice.total_amount,
+      amountDue: invoice.amount_due,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       message: `Invoice ${invoice.inv_number} confirmed`,
       invoice
     });
+
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    console.error(JSON.stringify({
+      level: "error",
+      event: "invoice_confirm_failed",
+      invoiceId,
+      message: err.message,
+      stack: err.stack,
+      timestamp: new Date().toISOString()
+    }));
+
+    return res.status(400).json({
+      message: err.message
+    });
   }
 }
 
-// POST /api/invoices/:id/cancel - Cancel invoice
+
+// POST /api/invoices/:id/cancel
 export async function cancelInvoice(req, res) {
+  const invoiceId = req.params.id;
+
+  console.log(JSON.stringify({
+    level: "info",
+    event: "invoice_cancel_request",
+    invoiceId,
+    timestamp: new Date().toISOString()
+  }));
+
   try {
-    const invoice = await findInvoiceByIdOrNumber(req.params.id);
+    const invoice = await findInvoiceByIdOrNumber(invoiceId);
+
     if (!invoice) {
-      return res.status(404).json({ message: "Invoice not found" });
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "invoice_cancel_not_found",
+        invoiceId,
+        timestamp: new Date().toISOString()
+      }));
+
+      return res.status(404).json({
+        message: "Invoice not found"
+      });
     }
+
+    const previousStatus = invoice.status;
 
     invoice.status = "CANCEL";
     await invoice.save();
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "invoice_cancelled",
+      invoiceId: invoice._id.toString(),
+      invoiceNumber: invoice.inv_number,
+      previousStatus,
+      newStatus: invoice.status,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       message: `Invoice ${invoice.inv_number} cancelled`,
       invoice
     });
+
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    console.error(JSON.stringify({
+      level: "error",
+      event: "invoice_cancel_failed",
+      invoiceId,
+      message: err.message,
+      stack: err.stack,
+      timestamp: new Date().toISOString()
+    }));
+
+    return res.status(400).json({
+      message: err.message
+    });
   }
 }
 
-// GET /api/invoices/:id/payments - Get payments associated with invoice
+
+// GET /api/invoices/:id/payments
 export async function getInvoicePayments(req, res) {
+  const invoiceId = req.params.id;
+
+  console.log(JSON.stringify({
+    level: "info",
+    event: "invoice_payments_fetch_request",
+    invoiceId,
+    timestamp: new Date().toISOString()
+  }));
+
   try {
-    const invoice = await findInvoiceByIdOrNumber(req.params.id);
+    const invoice = await findInvoiceByIdOrNumber(invoiceId);
+
     if (!invoice) {
-      return res.status(404).json({ message: "Invoice not found" });
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "invoice_payments_invoice_not_found",
+        invoiceId,
+        timestamp: new Date().toISOString()
+      }));
+
+      return res.status(404).json({
+        message: "Invoice not found"
+      });
     }
 
     const payments = await Payment.find({
       $or: [
         { invoiceBill: invoice._id },
         { invoiceBill: invoice.inv_number },
-        { invoiceBill: req.params.id }
+        { invoiceBill: invoiceId }
       ]
     }).sort({ createdAt: -1 });
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "invoice_payments_fetched",
+      invoiceId: invoice._id.toString(),
+      invoiceNumber: invoice.inv_number,
+      paymentCount: payments.length,
+      amountPaid: invoice.amount_paid,
+      amountDue: invoice.amount_due,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       invoiceNumber: invoice.inv_number,
@@ -100,17 +295,49 @@ export async function getInvoicePayments(req, res) {
       amountDue: invoice.amount_due,
       payments
     });
+
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    console.error(JSON.stringify({
+      level: "error",
+      event: "invoice_payments_fetch_failed",
+      invoiceId,
+      message: err.message,
+      stack: err.stack,
+      timestamp: new Date().toISOString()
+    }));
+
+    return res.status(500).json({
+      message: err.message
+    });
   }
 }
 
-// GET /api/invoices/:id/pdf - Return structured data formatted for PDF generation
+
+// GET /api/invoices/:id/pdf
 export async function getInvoicePDF(req, res) {
+  const invoiceId = req.params.id;
+
+  console.log(JSON.stringify({
+    level: "info",
+    event: "invoice_pdf_request",
+    invoiceId,
+    timestamp: new Date().toISOString()
+  }));
+
   try {
-    const invoice = await findInvoiceByIdOrNumber(req.params.id);
+    const invoice = await findInvoiceByIdOrNumber(invoiceId);
+
     if (!invoice) {
-      return res.status(404).json({ message: "Invoice not found" });
+      console.log(JSON.stringify({
+        level: "warn",
+        event: "invoice_pdf_not_found",
+        invoiceId,
+        timestamp: new Date().toISOString()
+      }));
+
+      return res.status(404).json({
+        message: "Invoice not found"
+      });
     }
 
     const pdfData = {
@@ -131,8 +358,29 @@ export async function getInvoicePDF(req, res) {
       }
     };
 
+    console.log(JSON.stringify({
+      level: "info",
+      event: "invoice_pdf_data_generated",
+      invoiceId: invoice._id.toString(),
+      invoiceNumber: invoice.inv_number,
+      itemCount: invoice.items?.length || 0,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(200).json(pdfData);
+
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    console.error(JSON.stringify({
+      level: "error",
+      event: "invoice_pdf_generation_failed",
+      invoiceId,
+      message: err.message,
+      stack: err.stack,
+      timestamp: new Date().toISOString()
+    }));
+
+    return res.status(500).json({
+      message: err.message
+    });
   }
 }
