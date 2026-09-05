@@ -17,10 +17,10 @@ const vendorBillSchema = new mongoose.Schema({
     ref: "User"
   },
   status: {
-    type: String,
-    enum: ["PAID", "DUE", "OVERDUE"],
-    default: "DUE"
-  },
+  type: String,
+  enum: ["DUE", "PAID", "OVERDUE", "CANCELLED"],
+  default: "DUE"
+},
   vendor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Contact",

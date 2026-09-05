@@ -7,6 +7,7 @@ const productSchema = new mongoose.Schema({
     enum: ["GOODS", "SERVICE", "COMBO"],
     required: true
   },
+  productImage: { type: String, default: "https://via.placeholder.com/150"},
   salesPrice: { type: Number, required: true, min: 0 },
   cost: { type: Number, required: true, min: 0 },
   category: { type: String, required: true },

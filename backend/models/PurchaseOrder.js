@@ -18,7 +18,11 @@ const purchaseOrderSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Contact",
     required: true
-  },
+  },status: {
+      type: String,
+      enum: ["DRAFT", "CONFIRMED", "CANCELLED"],
+      default: "DRAFT"
+    },
   items: { type: [purchaseItemSchema], required: true },
   total_amount: { type: Number, required: true, min: 0 },
   date: { type: Date, default: Date.now }
