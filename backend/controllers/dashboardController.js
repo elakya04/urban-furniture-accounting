@@ -3,9 +3,17 @@ import VendorBill from "../models/VendorBill.js";
 import Budget from "../models/Budget.js";
 
 export const getDashboardSummary = async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
+  const { startDate, endDate } = req.query;
 
+  console.log(JSON.stringify({
+    level: "info",
+    event: "dashboard_summary_request",
+    startDate,
+    endDate,
+    timestamp: new Date().toISOString()
+  }));
+
+  try {
     const invoiceFilter = {};
     const billFilter = {};
 
@@ -24,11 +32,28 @@ export const getDashboardSummary = async (req, res) => {
       }
     }
 
+    console.log(JSON.stringify({
+      level: "info",
+      event: "dashboard_filters_applied",
+      invoiceFilter,
+      billFilter,
+      timestamp: new Date().toISOString()
+    }));
+
     const invoices = await Invoice.find(invoiceFilter);
     const vendorBills = await VendorBill.find(billFilter);
     const budgets = await Budget.find({
       status: "CONFIRMED"
     });
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "dashboard_data_fetched",
+      invoiceCount: invoices.length,
+      vendorBillCount: vendorBills.length,
+      confirmedBudgetCount: budgets.length,
+      timestamp: new Date().toISOString()
+    }));
 
     const totalSales = invoices.reduce(
       (sum, invoice) => sum + invoice.total_amount,
@@ -60,24 +85,53 @@ export const getDashboardSummary = async (req, res) => {
       0
     );
 
+    const remainingBudget = totalBudget - achievedBudget;
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "dashboard_summary_calculated",
+      totalSales,
+      totalPurchases,
+      customerDues,
+      vendorDues,
+      totalBudget,
+      achievedBudget,
+      remainingBudget,
+      timestamp: new Date().toISOString()
+    }));
+
+    console.log(JSON.stringify({
+      level: "info",
+      event: "dashboard_summary_success",
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(200).json({
       success: true,
-
       summary: {
         totalSales,
         totalPurchases,
         customerDues,
         vendorDues,
-
         budget: {
           committed: totalBudget,
           achieved: achievedBudget,
-          remaining: totalBudget - achievedBudget
+          remaining: remainingBudget
         }
       }
     });
 
   } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "dashboard_summary_failed",
+      message: error.message,
+      stack: error.stack,
+      startDate,
+      endDate,
+      timestamp: new Date().toISOString()
+    }));
+
     return res.status(500).json({
       success: false,
       message: error.message

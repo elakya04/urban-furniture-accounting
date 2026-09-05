@@ -1,19 +1,19 @@
 import JournalEntry from "../models/JournalEntry.js";
-import COA from "../models/COA.js";
 import Budget from "../models/Budget.js";
 
 export const getProfitLoss = async (req, res) => {
-  console.log("[REPORT] Profit & Loss request received", {
-    startDate: req.query.startDate,
-    endDate: req.query.endDate
-  });
+  const { startDate, endDate } = req.query;
+
+  console.log(JSON.stringify({
+    level: "info",
+    event: "profit_loss_request",
+    startDate,
+    endDate,
+    timestamp: new Date().toISOString()
+  }));
 
   try {
-    const { startDate, endDate } = req.query;
-
-    const filter = {
-      status: "POSTED"
-    };
+    const filter = { status: "POSTED" };
 
     if (startDate || endDate) {
       filter.date = {};
@@ -22,12 +22,22 @@ export const getProfitLoss = async (req, res) => {
       if (endDate) filter.date.$lte = new Date(endDate);
     }
 
-    console.log("[REPORT] Profit & Loss filter:", filter);
+    console.log(JSON.stringify({
+      level: "info",
+      event: "profit_loss_query",
+      filter,
+      timestamp: new Date().toISOString()
+    }));
 
     const journalEntries = await JournalEntry.find(filter)
       .populate("journalItems.account");
 
-    console.log(`[REPORT] Found ${journalEntries.length} posted journal entries`);
+    console.log(JSON.stringify({
+      level: "info",
+      event: "profit_loss_entries_fetched",
+      count: journalEntries.length,
+      timestamp: new Date().toISOString()
+    }));
 
     let totalIncome = 0;
     let totalExpense = 0;
@@ -37,9 +47,12 @@ export const getProfitLoss = async (req, res) => {
         const account = item.account;
 
         if (!account) {
-          console.warn("[REPORT] Journal item has no valid account", {
-            journalEntryId: entry._id
-          });
+          console.log(JSON.stringify({
+            level: "warn",
+            event: "journal_item_missing_account",
+            journalEntryId: entry._id.toString(),
+            timestamp: new Date().toISOString()
+          }));
           return;
         }
 
@@ -55,11 +68,14 @@ export const getProfitLoss = async (req, res) => {
 
     const netIncome = totalIncome - totalExpense;
 
-    console.log("[REPORT] Profit & Loss calculated", {
+    console.log(JSON.stringify({
+      level: "info",
+      event: "profit_loss_calculated",
       totalIncome,
       totalExpense,
-      netIncome
-    });
+      netIncome,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       success: true,
@@ -70,10 +86,13 @@ export const getProfitLoss = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("[ERROR] Failed to generate Profit & Loss report", {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "profit_loss_failed",
       message: error.message,
-      stack: error.stack
-    });
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(500).json({
       success: false,
@@ -84,16 +103,17 @@ export const getProfitLoss = async (req, res) => {
 
 
 export const getBalanceSheet = async (req, res) => {
-  console.log("[REPORT] Balance Sheet request received", {
-    asOfDate: req.query.asOfDate
-  });
+  const { asOfDate } = req.query;
+
+  console.log(JSON.stringify({
+    level: "info",
+    event: "balance_sheet_request",
+    asOfDate,
+    timestamp: new Date().toISOString()
+  }));
 
   try {
-    const { asOfDate } = req.query;
-
-    const filter = {
-      status: "POSTED"
-    };
+    const filter = { status: "POSTED" };
 
     if (asOfDate) {
       filter.date = {
@@ -101,14 +121,15 @@ export const getBalanceSheet = async (req, res) => {
       };
     }
 
-    console.log("[REPORT] Balance Sheet filter:", filter);
+    console.log(JSON.stringify({
+      level: "info",
+      event: "balance_sheet_query",
+      filter,
+      timestamp: new Date().toISOString()
+    }));
 
     const journalEntries = await JournalEntry.find(filter)
       .populate("journalItems.account");
-
-    console.log(
-      `[REPORT] Found ${journalEntries.length} posted journal entries for Balance Sheet`
-    );
 
     let assets = 0;
     let liabilities = 0;
@@ -118,12 +139,7 @@ export const getBalanceSheet = async (req, res) => {
       entry.journalItems.forEach((item) => {
         const account = item.account;
 
-        if (!account) {
-          console.warn("[REPORT] Journal item has no valid account", {
-            journalEntryId: entry._id
-          });
-          return;
-        }
+        if (!account) return;
 
         if (account.type === "ASSET") {
           assets += item.debit - item.credit;
@@ -139,12 +155,15 @@ export const getBalanceSheet = async (req, res) => {
       });
     });
 
-    console.log("[REPORT] Balance Sheet calculated", {
+    console.log(JSON.stringify({
+      level: "info",
+      event: "balance_sheet_calculated",
       assets,
       liabilities,
       capital,
-      totalLiabilitiesAndCapital: liabilities + capital
-    });
+      totalLiabilitiesAndCapital: liabilities + capital,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       success: true,
@@ -156,10 +175,13 @@ export const getBalanceSheet = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("[ERROR] Failed to generate Balance Sheet", {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "balance_sheet_failed",
       message: error.message,
-      stack: error.stack
-    });
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(500).json({
       success: false,
@@ -170,21 +192,19 @@ export const getBalanceSheet = async (req, res) => {
 
 
 export const getBudgetReport = async (req, res) => {
-  console.log("[REPORT] Budget report request received", {
-    budgetId: req.query.budgetId,
-    analyticAccount: req.query.analyticAccount,
-    startDate: req.query.startDate,
-    endDate: req.query.endDate
-  });
+  const { budgetId, analyticAccount, startDate, endDate } = req.query;
+
+  console.log(JSON.stringify({
+    level: "info",
+    event: "budget_report_request",
+    budgetId,
+    analyticAccount,
+    startDate,
+    endDate,
+    timestamp: new Date().toISOString()
+  }));
 
   try {
-    const {
-      budgetId,
-      analyticAccount,
-      startDate,
-      endDate
-    } = req.query;
-
     const filter = {};
 
     if (budgetId) filter._id = budgetId;
@@ -196,21 +216,19 @@ export const getBudgetReport = async (req, res) => {
     if (startDate || endDate) {
       filter.start_date = {};
 
-      if (startDate) {
-        filter.start_date.$gte = new Date(startDate);
-      }
-
-      if (endDate) {
-        filter.start_date.$lte = new Date(endDate);
-      }
+      if (startDate) filter.start_date.$gte = new Date(startDate);
+      if (endDate) filter.start_date.$lte = new Date(endDate);
     }
-
-    console.log("[REPORT] Budget filter:", filter);
 
     const budgets = await Budget.find(filter)
       .populate("analytics_account", "name type");
 
-    console.log(`[REPORT] Found ${budgets.length} budgets`);
+    console.log(JSON.stringify({
+      level: "info",
+      event: "budget_report_fetched",
+      count: budgets.length,
+      timestamp: new Date().toISOString()
+    }));
 
     const report = budgets.map((budget) => {
       const percentage =
@@ -218,33 +236,24 @@ export const getBudgetReport = async (req, res) => {
           ? 0
           : (budget.achieved_amount / budget.committed_amount) * 100;
 
-      const remaining =
-        budget.committed_amount - budget.achieved_amount;
-
-      console.log("[REPORT] Budget calculated", {
-        budgetId: budget._id,
-        name: budget.name,
-        committed: budget.committed_amount,
-        achieved: budget.achieved_amount,
-        remaining,
-        percentage: Number(percentage.toFixed(2))
-      });
-
       return {
         id: budget._id,
         name: budget.name,
         analyticAccount: budget.analytics_account,
         committed: budget.committed_amount,
         achieved: budget.achieved_amount,
-        remaining,
+        remaining: budget.committed_amount - budget.achieved_amount,
         percentage: Number(percentage.toFixed(2)),
         status: budget.status
       };
     });
 
-    console.log("[REPORT] Budget report generated successfully", {
-      count: report.length
-    });
+    console.log(JSON.stringify({
+      level: "info",
+      event: "budget_report_generated",
+      count: report.length,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(200).json({
       success: true,
@@ -253,10 +262,13 @@ export const getBudgetReport = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("[ERROR] Failed to generate Budget Report", {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "budget_report_failed",
       message: error.message,
-      stack: error.stack
-    });
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }));
 
     return res.status(500).json({
       success: false,
