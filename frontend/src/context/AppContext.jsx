@@ -512,8 +512,13 @@ export const AppProvider = ({ children }) => {
     try {
       const items = (data.items || []).map(item => ({
         product: item.product?._id || item.product,
+        account: item.account?._id || item.account,
+        accountName: item.accountName,
+        budgetAnalytics: item.budgetAnalytics?._id || item.budgetAnalytics,
+        budgetAnalyticsName: item.budgetAnalyticsName,
         quantity: Number(item.quantity) || 1,
         unitPrice: Number(item.unitPrice) || 0,
+        total: Number(item.total) || (Number(item.quantity || 1) * Number(item.unitPrice || 0)),
         tax: Number(item.tax) || 0
       }));
 
@@ -601,7 +606,19 @@ export const AppProvider = ({ children }) => {
       const res = await api.confirmVendorBill(billId);
       const updatedBill = res?.data;
 
-      setVendorBills(prev => prev.map(b => b._id === billId ? (updatedBill || { ...b, status: 'DUE' }) : b));
+      setVendorBills(prev => prev.map(b => {
+        if (b._id === billId) {
+          const mergedVendor = (updatedBill?.vendor && typeof updatedBill.vendor === 'object' && updatedBill.vendor.name)
+            ? updatedBill.vendor
+            : (b.vendor && typeof b.vendor === 'object' ? b.vendor : updatedBill?.vendor || b.vendor);
+          return {
+            ...b,
+            ...(updatedBill || { status: 'DUE' }),
+            vendor: mergedVendor
+          };
+        }
+        return b;
+      }));
 
       const bill = vendorBills.find(b => b._id === billId) || updatedBill;
       const billTotal = Number(bill?.total || 0);
@@ -662,10 +679,29 @@ export const AppProvider = ({ children }) => {
       if (created?._id) {
         try {
           const confirmRes = await api.confirmPayment(created._id);
-          if (confirmRes?.data) {
-            setPayments(prev => [confirmRes.data, ...prev]);
-          } else {
-            setPayments(prev => [{ ...created, status: 'CONFIRM' }, ...prev]);
+          const confirmedPayment = confirmRes?.data?.payment || (confirmRes?.data?._id ? confirmRes.data : { ...created, status: 'CONFIRM' });
+          const updatedBill = confirmRes?.data?.bill;
+
+          setPayments(prev => [confirmedPayment, ...prev]);
+
+          if (updatedBill?._id) {
+            if (payload.vendorbill) {
+              setVendorBills(prev => prev.map(b => {
+                if (b._id === updatedBill._id) {
+                  const mergedVendor = (updatedBill.vendor && typeof updatedBill.vendor === 'object' && updatedBill.vendor.name)
+                    ? updatedBill.vendor
+                    : (b.vendor && typeof b.vendor === 'object' ? b.vendor : updatedBill.vendor || b.vendor);
+                  return {
+                    ...b,
+                    ...updatedBill,
+                    vendor: mergedVendor
+                  };
+                }
+                return b;
+              }));
+            } else if (payload.invoiceBill) {
+              setInvoices(prev => prev.map(inv => inv._id === updatedBill._id ? { ...inv, ...updatedBill, customerName: updatedBill.customerName || inv.customerName } : inv));
+            }
           }
         } catch (confErr) {
           setPayments(prev => [created, ...prev]);
@@ -680,7 +716,7 @@ export const AppProvider = ({ children }) => {
         setInvoices(prev => prev.map(inv => {
           if (inv._id === payload.invoiceBill) {
             const newPaid = Number(inv.amount_paid || 0) + payload.amount;
-            const newDue = Math.max(0, Number(inv.total_amount) - newPaid);
+            const newDue = Math.max(0, Number(inv.total_amount ?? inv.total ?? 0) - newPaid);
             return { ...inv, amount_paid: newPaid, amount_due: newDue, status: newDue === 0 ? 'PAID' : 'DUE' };
           }
           return inv;
@@ -691,7 +727,7 @@ export const AppProvider = ({ children }) => {
         setVendorBills(prev => prev.map(bill => {
           if (bill._id === payload.vendorbill) {
             const newPaid = Number(bill.amount_paid || 0) + payload.amount;
-            const newDue = Math.max(0, Number(bill.total) - newPaid);
+            const newDue = Math.max(0, Number(bill.total || 0) - newPaid);
             return { ...bill, amount_paid: newPaid, amount_due: newDue, status: newDue === 0 ? 'PAID' : 'DUE' };
           }
           return bill;
