@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { Table } from '../../components/common/Table';
@@ -13,6 +13,8 @@ export const CustomerPortal = () => {
   const { currentUser } = useAuth();
   const [processingInvoiceId, setProcessingInvoiceId] = useState(null);
   const [localInvoices, setLocalInvoices] = useState(null);
+  const [paidInvoiceIds, setPaidInvoiceIds] = useState(new Set());
+  const isPayingRef = useRef(false);
 
   // Use local invoices if updated via Razorpay, otherwise fallback to context invoices
   const activeInvoicesList = localInvoices || invoices;
@@ -31,13 +33,17 @@ export const CustomerPortal = () => {
   });
 
   const handleCustomerPay = async (inv) => {
+    if (isPayingRef.current) return;
+
     const amountToPay = inv.amount_due ?? inv.total_amount;
     if (!amountToPay || amountToPay <= 0) {
       showToast?.('Invoice has no pending amount', 'info');
       return;
     }
 
+    isPayingRef.current = true;
     setProcessingInvoiceId(inv._id);
+
     try {
       // Step 1: Create Razorpay order on backend
       const orderData = await createRazorpayOrder({
@@ -72,16 +78,30 @@ export const CustomerPortal = () => {
       });
 
       // Step 4: Show success confirmation & update local table state
-      showToast?.(`Payment of ${formatCurrency(amountToPay)} verified successfully!`, 'success');
+      showToast?.(`Payment of ${formatCurrency(amountToPay)} verified successfully! Invoice marked as Paid.`, 'success');
+
+      setPaidInvoiceIds(prev => {
+        const next = new Set(prev);
+        if (inv._id) next.add(String(inv._id));
+        if (inv.inv_number) next.add(inv.inv_number);
+        return next;
+      });
 
       setLocalInvoices(prev => {
         const base = prev || invoices;
-        return base.map(item => item._id === inv._id ? {
-          ...item,
-          amount_paid: (item.amount_paid || 0) + amountToPay,
-          amount_due: 0,
-          status: 'PAID'
-        } : item);
+        return base.map(item => {
+          const isMatch = (item._id && inv._id && String(item._id) === String(inv._id)) ||
+                          (item.inv_number && inv.inv_number && item.inv_number === inv.inv_number);
+          if (isMatch) {
+            return {
+              ...item,
+              amount_paid: (item.amount_paid || 0) + amountToPay,
+              amount_due: 0,
+              status: 'PAID'
+            };
+          }
+          return item;
+        });
       });
 
     } catch (error) {
@@ -92,6 +112,7 @@ export const CustomerPortal = () => {
         showToast?.('Payment cancelled by user', 'info');
       }
     } finally {
+      isPayingRef.current = false;
       setProcessingInvoiceId(null);
     }
   };
@@ -109,16 +130,37 @@ export const CustomerPortal = () => {
     { header: 'Invoice Date', cell: (row) => formatDate(row.invoice_date) },
     { header: 'Due Date', cell: (row) => formatDate(row.due_date) },
     { header: 'Total Amount', cell: (row) => formatCurrency(row.total_amount) },
-    { header: 'Amount Due', cell: (row) => <span className="font-bold text-slate-900">{formatCurrency(row.amount_due ?? row.total_amount)}</span> },
-    { header: 'Status', cell: (row) => <Badge status={row.status} /> },
+    {
+      header: 'Amount Due',
+      cell: (row) => {
+        const isPaid = row.status === 'PAID' || 
+                       (row.amount_due !== undefined && row.amount_due <= 0) ||
+                       paidInvoiceIds.has(String(row._id)) ||
+                       paidInvoiceIds.has(row.inv_number);
+        return <span className="font-bold text-slate-900">{formatCurrency(isPaid ? 0 : (row.amount_due ?? row.total_amount))}</span>;
+      }
+    },
+    {
+      header: 'Status',
+      cell: (row) => {
+        const isPaid = row.status === 'PAID' || 
+                       (row.amount_due !== undefined && row.amount_due <= 0) ||
+                       paidInvoiceIds.has(String(row._id)) ||
+                       paidInvoiceIds.has(row.inv_number);
+        return <Badge status={isPaid ? 'PAID' : row.status} />;
+      }
+    },
     {
       header: 'Action / Pay',
       cell: (row) => {
-        const isPaid = row.status === 'PAID' || (row.amount_due !== undefined && row.amount_due <= 0);
+        const isPaid = row.status === 'PAID' || 
+                       (row.amount_due !== undefined && row.amount_due <= 0) ||
+                       paidInvoiceIds.has(String(row._id)) ||
+                       paidInvoiceIds.has(row.inv_number);
         if (isPaid) {
           return (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-              <CheckCircle className="w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 shadow-2xs">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
               Paid
             </span>
           );
