@@ -2,13 +2,11 @@ import mongoose from "mongoose";
 
 const paymentSchema = new mongoose.Schema({
   invoiceBill: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Invoice",
+    type: mongoose.Schema.Types.Mixed,
     default: null
   },
   vendorbill: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "VendorBill",
+    type: mongoose.Schema.Types.Mixed,
     default: null
   },
   payment_method: {
@@ -27,7 +25,7 @@ const paymentSchema = new mongoose.Schema({
     enum: ["SEND", "RECEIVE"],
     required: true
   },
-  date: { type: Date, default: Date.now }
+  date: { type: String, default: () => new Date().toISOString().split('T')[0] }
 }, { timestamps: true });
 
 export default mongoose.model("Payment", paymentSchema);

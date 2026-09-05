@@ -10,7 +10,6 @@ import analyticAccountRoutes from "./routes/analyticAccountRoutes.js";
 import purchaseOrderRoutes from "./routes/purchaseOrderRoutes.js";
 import vendorBillRoutes from "./routes/vendorBillRoutes.js";
 import meVendorBillRoutes from "./routes/meVendorBillRoutes.js";
-import contactRouter from "./routes/contactRoutes.js";
 
 dotenv.config();
 
@@ -19,6 +18,7 @@ const app = express();
 app.use(express.json());
 app.use("/api/auth", authRouter);
 app.use("/api/sales-orders", salesOrderRouter);
+app.use("/api/invoices", invoiceRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/journals", journalRoutes);
@@ -26,7 +26,7 @@ app.use("/api/analytic-accounts", analyticAccountRoutes);
 app.use("/api/purchase-orders", purchaseOrderRoutes);
 app.use("/api/vendor-bills", vendorBillRoutes);
 app.use("/api/me", meVendorBillRoutes);
-app.use("/api/contacts",contactRouter);
+app.use("/api/contacts", contactRouter);
 
 const PORT = process.env.PORT;
 

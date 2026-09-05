@@ -212,12 +212,33 @@ export const AppProvider = ({ children }) => {
     addAuditLog('INVOICE_SO', `Generated invoice from Sales Order ${so.so_number}`);
   };
 
+  // Auto-fetch Invoices from backend API on mount
+  useEffect(() => {
+    const fetchInvoices = async () => {
+      try {
+        const data = await api.getInvoices();
+        if (Array.isArray(data) && data.length > 0) {
+          setInvoices(data);
+        }
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load invoices from API:', err.message);
+      }
+    };
+    fetchInvoices();
+  }, []);
+
   // Confirm Invoice -> Auto Journal Entry (Debit Debtors, Credit Sales Income)
-  const confirmInvoice = (invId) => {
+  const confirmInvoice = async (invId) => {
     const inv = invoices.find(i => i._id === invId);
     if (!inv) return;
 
-    setInvoices(prev => prev.map(i => i._id === invId ? { ...i, status: 'DUE' } : i));
+    try {
+      await api.confirmInvoice(invId);
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error confirming invoice on backend:', err.message);
+    }
+
+    setInvoices(prev => prev.map(i => i._id === invId ? { ...i, status: i.amount_due === 0 ? 'PAID' : 'DUE' } : i));
 
     // Auto-create balanced Journal Entry
     const newJE = {
@@ -240,7 +261,21 @@ export const AppProvider = ({ children }) => {
     setJournalEntries(prev => [newJE, ...prev]);
     showToast(`Invoice ${inv.inv_number} confirmed! Journal Entry posted automatically.`, 'success');
     addAuditLog('CONFIRM_INVOICE', `Confirmed invoice ${inv.inv_number} and posted journal entry`);
-    api.confirmInvoice(invId);
+  };
+
+  const cancelInvoice = async (invId) => {
+    const inv = invoices.find(i => i._id === invId);
+    if (!inv) return;
+
+    try {
+      await api.cancelInvoice(invId);
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error cancelling invoice on backend:', err.message);
+    }
+
+    setInvoices(prev => prev.map(i => i._id === invId ? { ...i, status: 'CANCEL' } : i));
+    showToast(`Invoice ${inv.inv_number} cancelled.`, 'info');
+    addAuditLog('CANCEL_INVOICE', `Cancelled invoice ${inv.inv_number}`);
   };
 
   // Purchase Orders & Vendor Bills Workflow
@@ -513,6 +548,7 @@ export const AppProvider = ({ children }) => {
         cancelSalesOrder,
         createInvoiceFromSO,
         confirmInvoice,
+        cancelInvoice,
         addPurchaseOrder,
         confirmPurchaseOrder,
         confirmVendorBill,
