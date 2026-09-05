@@ -14,7 +14,6 @@ import {
   BarChart3,
   Archive,
   History,
-  ShieldCheck,
   Building2,
   Tag,
   LogOut
@@ -24,7 +23,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export const Sidebar = ({ activeTab, setActiveTab }) => {
   const { currentUser, logout } = useAuth();
-  const role = currentUser?.role || 'ADMIN';
+  const role = currentUser?.userType;
 
 
   const isCustomer = role === 'CONTACT' && currentUser?.contact_id === 'CUSTOMER';
@@ -90,12 +89,6 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
         { id: 'balance-sheet', label: 'Balance Sheet', icon: Building2, roles: ['ADMIN', 'ACCOUNTANT'] },
         { id: 'budget-report', label: 'Budget Report', icon: PieChart, roles: ['ADMIN', 'ACCOUNTANT'] }
       ]
-    },
-    {
-      title: 'Audit & System',
-      items: [
-        { id: 'audit-logs', label: 'Audit Logs', icon: ShieldCheck, roles: ['ADMIN'] }
-      ]
     }
   ];
 
@@ -131,11 +124,10 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
                     <button
                       key={item.id}
                       onClick={() => setActiveTab(item.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                        isActive
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isActive
                           ? 'bg-slate-800 text-amber-400 font-semibold shadow-xs'
                           : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
-                      }`}
+                        }`}
                     >
                       <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
                       <span>{item.label}</span>

@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.use(protect, authorize("ADMIN", "ACCOUNTANT"));
 
+router.get("/", getLedger);
 router.get("/:accid", getLedger);
 router.get("/account/:accountId", getLedger);
 

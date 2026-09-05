@@ -22,7 +22,6 @@ import { BalanceSheetPage } from '../../pages/reports/BalanceSheetPage';
 import { BudgetReportPage } from '../../pages/reports/BudgetReportPage';
 import { CustomerPortal } from '../../pages/portal/CustomerPortal';
 import { VendorPortal } from '../../pages/portal/VendorPortal';
-import { AuditLogList } from '../../pages/auditLogs/AuditLogList';
 
 export const AppLayout = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -69,8 +68,6 @@ export const AppLayout = () => {
         return <CustomerPortal />;
       case 'vendor-portal':
         return <VendorPortal />;
-      case 'audit-logs':
-        return <AuditLogList />;
       default:
         return <Dashboard onNavigate={setActiveTab} />;
     }

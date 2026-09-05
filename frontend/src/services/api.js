@@ -200,9 +200,6 @@ export const api = {
   // File Upload
   uploadImage: (formData) => fetchJSON('/uploads/image', { method: 'POST', body: formData }),
 
-  // Audit Logs
-  getAuditLogs: () => fetchJSON('/audit-logs'),
-
   // Global Search
   globalSearch: (query) => fetchJSON(`/search?q=${encodeURIComponent(query)}`)
 };
