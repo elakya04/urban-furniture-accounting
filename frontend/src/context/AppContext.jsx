@@ -17,10 +17,12 @@ import {
 } from '../services/mockData';
 import { validateJournalEntryBalance, computeBudgetMetrics } from '../utils/accountingMath';
 import { api } from '../services/api';
+import { useAuth } from './AuthContext';
 
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
+  const { isAuthenticated } = useAuth() || {};
   const [users, setUsers] = useState(initialUsers);
   const [contacts, setContacts] = useState(initialContacts);
   const [products, setProducts] = useState(initialProducts);
@@ -194,9 +196,12 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Auto-fetch master data from backend API on mount
+  // Auto-fetch all master data & documents from backend API ONLY after user is authenticated
   useEffect(() => {
-    const loadMasterData = async () => {
+    if (!isAuthenticated) return;
+
+    const loadAllAppData = async () => {
+      // Products
       try {
         const res = await api.getProducts();
         const list = res?.data || (Array.isArray(res) ? res : []);
@@ -205,6 +210,7 @@ export const AppProvider = ({ children }) => {
         console.warn('[APP CONTEXT] Failed to load products from API:', err.message);
       }
 
+      // Chart of Accounts
       try {
         const res = await api.getAccounts();
         const list = res?.data || (Array.isArray(res) ? res : []);
@@ -213,6 +219,7 @@ export const AppProvider = ({ children }) => {
         console.warn('[APP CONTEXT] Failed to load accounts from API:', err.message);
       }
 
+      // Journals
       try {
         const res = await api.getJournals();
         const list = res?.data || (Array.isArray(res) ? res : []);
@@ -221,6 +228,7 @@ export const AppProvider = ({ children }) => {
         console.warn('[APP CONTEXT] Failed to load journals from API:', err.message);
       }
 
+      // Analytic Accounts
       try {
         const res = await api.getAnalyticAccounts();
         const list = res?.data || (Array.isArray(res) ? res : []);
@@ -229,6 +237,7 @@ export const AppProvider = ({ children }) => {
         console.warn('[APP CONTEXT] Failed to load analytic accounts from API:', err.message);
       }
 
+      // Contacts
       try {
         const res = await api.getContacts();
         const list = res?.data || (Array.isArray(res) ? res : []);
@@ -237,6 +246,25 @@ export const AppProvider = ({ children }) => {
         console.warn('[APP CONTEXT] Failed to load contacts from API:', err.message);
       }
 
+      // Sales Orders
+      try {
+        const data = await api.getSalesOrders();
+        const list = data?.data || (Array.isArray(data) ? data : []);
+        if (list.length > 0) setSalesOrders(list);
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load sales orders from API:', err.message);
+      }
+
+      // Invoices
+      try {
+        const data = await api.getInvoices();
+        const list = data?.data || (Array.isArray(data) ? data : []);
+        if (list.length > 0) setInvoices(list);
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load invoices from API:', err.message);
+      }
+
+      // Purchase Orders
       try {
         const res = await api.getPurchaseOrders();
         const list = res?.data || (Array.isArray(res) ? res : []);
@@ -245,6 +273,7 @@ export const AppProvider = ({ children }) => {
         console.warn('[APP CONTEXT] Failed to load purchase orders from API:', err.message);
       }
 
+      // Vendor Bills
       try {
         const res = await api.getVendorBills();
         const list = res?.data || (Array.isArray(res) ? res : []);
@@ -253,6 +282,7 @@ export const AppProvider = ({ children }) => {
         console.warn('[APP CONTEXT] Failed to load vendor bills from API:', err.message);
       }
 
+      // Payments
       try {
         const res = await api.getPayments();
         const list = res?.data || (Array.isArray(res) ? res : []);
@@ -261,6 +291,7 @@ export const AppProvider = ({ children }) => {
         console.warn('[APP CONTEXT] Failed to load payments from API:', err.message);
       }
 
+      // Journal Entries
       try {
         const res = await api.getJournalEntries();
         const list = res?.data || (Array.isArray(res) ? res : []);
@@ -269,6 +300,7 @@ export const AppProvider = ({ children }) => {
         console.warn('[APP CONTEXT] Failed to load journal entries from API:', err.message);
       }
 
+      // Budgets
       try {
         const res = await api.getBudgets();
         const list = res?.budgets || res?.data || (Array.isArray(res) ? res : []);
@@ -278,23 +310,8 @@ export const AppProvider = ({ children }) => {
       }
     };
 
-    loadMasterData();
-  }, []);
-
-  // Auto-fetch Sales Orders from backend API on mount
-  useEffect(() => {
-    const fetchSalesOrders = async () => {
-      try {
-        const data = await api.getSalesOrders();
-        if (Array.isArray(data) && data.length > 0) {
-          setSalesOrders(data);
-        }
-      } catch (err) {
-        console.warn('[APP CONTEXT] Failed to load sales orders from API:', err.message);
-      }
-    };
-    fetchSalesOrders();
-  }, []);
+    loadAllAppData();
+  }, [isAuthenticated]);
 
   // Sales Orders & Invoices Workflow
   const addSalesOrder = async (data) => {
@@ -386,20 +403,7 @@ export const AppProvider = ({ children }) => {
     addAuditLog('INVOICE_SO', `Generated invoice from Sales Order ${so.so_number}`);
   };
 
-  // Auto-fetch Invoices from backend API on mount
-  useEffect(() => {
-    const fetchInvoices = async () => {
-      try {
-        const data = await api.getInvoices();
-        if (Array.isArray(data) && data.length > 0) {
-          setInvoices(data);
-        }
-      } catch (err) {
-        console.warn('[APP CONTEXT] Failed to load invoices from API:', err.message);
-      }
-    };
-    fetchInvoices();
-  }, []);
+
 
   // Confirm Invoice -> Auto Journal Entry (Debit Debtors, Credit Sales Income)
   const confirmInvoice = async (invId) => {
