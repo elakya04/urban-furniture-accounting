@@ -22,9 +22,36 @@ import { BalanceSheetPage } from '../../pages/reports/BalanceSheetPage';
 import { BudgetReportPage } from '../../pages/reports/BudgetReportPage';
 import { CustomerPortal } from '../../pages/portal/CustomerPortal';
 import { VendorPortal } from '../../pages/portal/VendorPortal';
+import { useAuth } from '../../context/AuthContext';
 
 export const AppLayout = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const { currentUser } = useAuth();
+  const role = currentUser?.userType || currentUser?.role;
+
+  let contactRole = (
+    currentUser?.contactRole ||
+    currentUser?.contact_role ||
+    currentUser?.contact_id ||
+    currentUser?.user?.contact_role ||
+    ''
+  ).toUpperCase();
+
+  if (!contactRole) {
+    try {
+      const token = localStorage.getItem('uf_token');
+      if (token && token.includes('.')) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload?.contactRole) contactRole = payload.contactRole.toUpperCase();
+      }
+    } catch (_) { }
+  }
+
+  // Determine initial active tab based on user role
+  const defaultTab = role === 'CONTACT'
+    ? (contactRole === 'VENDOR' ? 'vendor-portal' : 'customer-portal')
+    : 'dashboard';
+
+  const [activeTab, setActiveTab] = useState(defaultTab);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -65,10 +92,19 @@ export const AppLayout = () => {
       case 'budget-report':
         return <BudgetReportPage />;
       case 'customer-portal':
+        if (role === 'CONTACT' && contactRole === 'VENDOR') {
+          return <VendorPortal />;
+        }
         return <CustomerPortal />;
       case 'vendor-portal':
+        if (role === 'CONTACT' && contactRole === 'CUSTOMER') {
+          return <CustomerPortal />;
+        }
         return <VendorPortal />;
       default:
+        if (role === 'CONTACT') {
+          return contactRole === 'VENDOR' ? <VendorPortal /> : <CustomerPortal />;
+        }
         return <Dashboard onNavigate={setActiveTab} />;
     }
   };

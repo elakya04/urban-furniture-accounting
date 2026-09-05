@@ -1,0 +1,141 @@
+<USER_REQUEST>
+can you integrate all the below endpoint with frontend , and ensure all rbac, jwt all are used properly purchase-orders,vendor-bills,payments,journal-entries,budgets, you can you the ref UX added @[c:\Users\elaky\OneDrive\Desktop\furniture\urban-furniture-accounting\Accounting Hackathon - 24 Hours.svg] , aslo including the problem statement for your ref here,Urban Furniture: Accounting System
+1. Overview
+An accounting system for Urban Furniture that enables: 
+● Entry of core master data (Contacts, Products, Chart of Accounts, Budget, 
+Journals) 
+● Smooth recording of sales, purchases, and payments using the master data. 
+● Automated generation of financial and stock reports like Balance Sheet, Profit & 
+Loss (P&L), and Budget Report. 
+2. Primary Actors
+● Admin (Business Owner) – Creates/ Modify/ Archived Master Data, Record 
+Transaction and View Report 
+● Invoicing User (Accountant) – Creates Master Data, Records Transactions, Views
+Reports. 
+● Contact - Contact users can be created when creating Contact Master data. Only
+view their own invoice/bills and make payment. 
+● System – Validates data, computes taxes, updates ledgers, and generates reports
+3. Master Data Modules
+1. Contact Master 
+Fields: Name, Type (Customer/Vendor/Both), Email, Mobile, Address (City, State, 
+Pincode), Profile Image. 
+. 
+Example: 
+● Vendor: Rahul Sharma 
+● Customer: Nimesh Pathak 
+2. Product Master 
+Fields: Product Name, Type (Goods/Service/combo), Sales Price, Cost (Purchase Price), 
+Category. 
+Example: Office Chair, Wooden Table, Sofa, Dining Table. 
+3. Chart of Accounts Master 
+Concept: Chart of Accounts (CoA) is essentially the master list of all ledger accounts 
+used to classify every financial transaction in an organization. Each account in the CoA 
+acts like a category or bucket where related transactions are grouped (e.g., Cash, Bank, 
+Sales Income, Purchase Expense). 
+Fields: Account Name, Type (Asset, Liability, Expense, Income, Capital). 
+Example: 
+● Assets: Cash, Bank, Debtors, 
+● Liabilities : Creditors 
+● Income: Sale Income 
+● Expenses: Purchases Expense 
+4. Journal 
+Concept: A Journal is a record or book used to group and organize similar accounting 
+transactions. Each journal represents a specific type of financial activity, such as sales, 
+purchases, bank transactions, or cash transactions. 
+Fields: Journal Name, Type, Default Accounts. 
+Example: 
+● Sales Journal: Customer invoices and sales transactions 
+● Purchase Journal: Vendor bills and purchase transactions 
+● Bank Journal: Bank-related transactions 
+● Cash Journal: Cash receipts and payments 
+5. Journal Entries 
+Concept: A Journal Entry is the actual accounting record created for a financial 
+transaction. It records the debit and credit accounts along with the amount, ensuring that 
+every transaction follows the double-entry accounting principle. 
+Fields: Journal, Date, Reference, Journal Items, Account, Debit, Credit. 
+Example: 
+● Cash received from customer → Debit: Cash, Credit: Debtor 
+● Purchase made on credit → Debit: Purchase Expense, Credit: Creditor 
+4. Transaction Flow
+Users can use master data to create and link transactions: 
+Process 
+Fields/Details 
+Purchase Order Select Vendor, Product, Quantity, Unit Price 
+Vendor Bill 
+Convert PO to Bill, record invoice date, due date, and register 
+payment (Cash/Bank) 
+Sales Order 
+Customer 
+Invoice 
+Payment 
+Select Customer, Product, Quantity, Unit Price, Tax 
+Generate Invoice from SO and receive payment via Cash/Bank 
+Register against bill/invoice - select bank or cash 
+5. Budget Flow
+Analytic Account: 
+Concept: An Analytic Account serves as a financial marker to monitor and group 
+expenses or income related to a particular project, department, or business unit. It 
+provides the foundation for evaluating the fiscal success of that specific sector. 
+Fields: Analytic Account name, Type (Income/Expenses) 
+Budget: 
+Concept: A Budget is then created by defining the budget period, planned amount, and 
+the relevant analytic account. 
+Fields: Budget Name, Period, Responsible Person 
+6. Reporting Requirements
+After transactions are recorded, the system must generate: 
+1. Balance Sheet – Real-time snapshot of Assets, Liabilities, and Capital. 
+2. Profit & Loss Account – Income from product sales minus purchases/expenses to 
+show net profit. 
+3. Budget Report – Provides an overview of the planned budget. 
+7. Key Use-Case Steps
+7.1 Create Master Data 
+1. User creates and maintains the required master data. 
+2. User adds Contacts, such as Azure Furniture and Nimesh Pathak. 
+3. User adds Products, such as Wooden Chair. 
+4. Sets up the Chart of Accounts. 
+7.2 Record a Purchase 
+1. User creates a Purchase Order for Azure Furniture. 
+2. Once the goods are received, the user converts the Purchase Order into a Vendor 
+Bill. 
+3. User records the payment through Bank. 
+7.3 Record a Sale 
+1. User creates a Sales Order for Nimesh Pathak for 5 Office Chairs. 
+2. User generates a Customer Invoice. 
+3. User records the payment through Cash/Bank. 
+7.4 Generate Reports 
+1. User selects the reporting period. 
+2. The system generates the following financial reports: 
+● Balance Sheet: Showing Companyʼs assets and liabilities. 
+● Profit & Loss Report: Showing total sales, purchases, expenses, and net 
+profit. 
+● Budget Report 
+Why This Hackathon Problem is Important 
+Real-world accounting workflow: Shows how a complete accounting process works 
+end-to-end (Master Data → Purchase/Sales → Invoice/Bill → Payment → Accounting 
+Entries → Reporting). 
+Business logic focus: Teaches handling practical accounting rules like debit/credit 
+entries, payment tracking, account classification, budgets, and financial report generation 
+— not just UI screens. 
+Industry-ready system thinking: Builds a production-like solution connecting contacts, 
+products, journals, transactions, budgets, and financial reports while maintaining accurate 
+and consistent accounting data. 
+Mockup Link - https://app.excalidraw.com/s/65VNwvy7c4X/6ofCsWuwhe  
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-05T23:23:59+05:30.
+
+The user's current state is as follows:
+Active Document: c:\Users\elaky\OneDrive\Desktop\furniture\urban-furniture-accounting\backend\controllers\authController.js (LANGUAGE_JAVASCRIPT)
+Cursor is on line: 183
+Other open documents:
+- c:\Users\elaky\OneDrive\Desktop\furniture\urban-furniture-accounting\frontend\src\pages\products\ProductsPage.jsx (LANGUAGE_JAVASCRIPT)
+- c:\Users\elaky\OneDrive\Desktop\furniture\urban-furniture-accounting\backend\controllers\ledgerController.js (LANGUAGE_JAVASCRIPT)
+- c:\Users\elaky\OneDrive\Desktop\furniture\urban-furniture-accounting\backend\models\JournalEntry.js (LANGUAGE_JAVASCRIPT)
+- c:\Users\elaky\OneDrive\Desktop\furniture\urban-furniture-accounting\backend\models\PurchaseOrder.js (LANGUAGE_JAVASCRIPT)
+- c:\Users\elaky\OneDrive\Desktop\furniture\urban-furniture-accounting\frontend\src\pages\coa\COAPage.jsx (LANGUAGE_JAVASCRIPT)
+
+The user has mentioned some items in the form @[ITEM]. Here is extra information about the items that were mentioned by the user, in the order that they appear:
+
+@[c:\Users\elaky\OneDrive\Desktop\furniture\urban-furniture-accounting\Accounting Hackathon - 24 Hours.svg] is a [File]:
+c:\Users\elaky\OneDrive\Desktop\furniture\urban-furniture-accounting\Accounting Hackathon - 24 Hours.svg
+</ADDITIONAL_METADATA>

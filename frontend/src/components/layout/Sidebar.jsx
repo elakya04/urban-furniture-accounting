@@ -23,11 +23,32 @@ import { useAuth } from '../../context/AuthContext';
 
 export const Sidebar = ({ activeTab, setActiveTab }) => {
   const { currentUser, logout } = useAuth();
-  const role = currentUser?.userType;
+  const role = currentUser?.userType || currentUser?.role;
 
+  let contactRole = (
+    currentUser?.contactRole ||
+    currentUser?.contact_role ||
+    currentUser?.contact_id ||
+    currentUser?.user?.contact_role ||
+    ''
+  ).toUpperCase();
 
-  const isCustomer = role === 'CONTACT' && currentUser?.contact_id === 'CUSTOMER';
-  const isVendor = role === 'CONTACT' && currentUser?.contact_id === 'VENDOR';
+  if (!contactRole) {
+    try {
+      const token = localStorage.getItem('uf_token');
+      if (token && token.includes('.')) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload?.contactRole) contactRole = payload.contactRole.toUpperCase();
+      }
+    } catch (_) { }
+  }
+
+  // Customer should only have customer page, vendor only vendor page, and BOTH has both
+  const canViewCustomerPortal = ['ADMIN', 'ACCOUNTANT'].includes(role) ||
+    (role === 'CONTACT' && ['CUSTOMER', 'BOTH'].includes(contactRole));
+
+  const canViewVendorPortal = ['ADMIN', 'ACCOUNTANT'].includes(role) ||
+    (role === 'CONTACT' && ['VENDOR', 'BOTH'].includes(contactRole));
 
   const menuSections = [
     {
@@ -39,8 +60,8 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
     {
       title: 'Self Service Portals',
       items: [
-        { id: 'customer-portal', label: 'Customer Portal', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT', 'CONTACT'] },
-        { id: 'vendor-portal', label: 'Vendor Portal', icon: Truck, roles: ['ADMIN', 'ACCOUNTANT', 'CONTACT'] }
+        ...(canViewCustomerPortal ? [{ id: 'customer-portal', label: 'Customer Portal', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT', 'CONTACT'] }] : []),
+        ...(canViewVendorPortal ? [{ id: 'vendor-portal', label: 'Vendor Portal', icon: Truck, roles: ['ADMIN', 'ACCOUNTANT', 'CONTACT'] }] : [])
       ]
     },
     {
@@ -125,8 +146,8 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
                       key={item.id}
                       onClick={() => setActiveTab(item.id)}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isActive
-                          ? 'bg-slate-800 text-amber-400 font-semibold shadow-xs'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                        ? 'bg-slate-800 text-amber-400 font-semibold shadow-xs'
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
                         }`}
                     >
                       <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
@@ -140,15 +161,11 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
         })}
       </nav>
 
-      {/* Role Indicator & Logout Footer */}
-      <div className="p-4 border-t border-slate-800 bg-slate-950/40 text-xs space-y-3">
-        <div className="flex items-center justify-between text-slate-400">
-          <span>Active Role:</span>
-          <span className="font-semibold text-amber-400 uppercase">{role}</span>
-        </div>
+      {/* Logout Footer */}
+      <div className="p-4 border-t border-slate-800 bg-slate-950/40 text-xs">
         <button
           onClick={logout}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-rose-950/40 border border-rose-900/50 hover:bg-rose-900/60 text-rose-300 font-semibold text-xs transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-rose-950/40 border border-rose-900/50 hover:bg-rose-900/60 text-rose-300 font-semibold text-xs transition-colors cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
           Logout / Sign Out
