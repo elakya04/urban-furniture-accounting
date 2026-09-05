@@ -3,6 +3,7 @@ import PurchaseOrder from "../models/PurchaseOrder.js";
 import VendorBill from "../models/VendorBill.js";
 import Contact from "../models/Contact.js";
 import Product from "../models/Product.js";
+import User from "../models/User.js";
 
 
 // POST /api/purchase-orders
@@ -25,15 +26,29 @@ export const createPurchaseOrder = async (req, res) => {
     }
 
     // Validate vendor
-    const vendorExists = await Contact.findOne({
-      _id: vendor,
-      userType: { $in: ["VENDOR", "BOTH"] }
-    });
+    const vendorContact = await Contact.findById(vendor);
 
-    if (!vendorExists) {
+    if (!vendorContact) {
       return res.status(404).json({
         success: false,
         message: "Vendor not found"
+      });
+    }
+
+    // Check if the linked User has contact_role VENDOR or BOTH
+    if (vendorContact.user) {
+      const vendorUser = await User.findById(vendorContact.user);
+
+      if (!vendorUser || ![ "VENDOR", "BOTH" ].includes(vendorUser.contact_role)) {
+        return res.status(400).json({
+          success: false,
+          message: "Contact is not a vendor"
+        });
+      }
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Contact does not have a linked user account"
       });
     }
 
