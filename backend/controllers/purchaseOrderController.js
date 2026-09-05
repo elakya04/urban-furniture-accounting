@@ -381,18 +381,13 @@ export const createVendorBillFromPurchaseOrder = async (req, res) => {
       });
     }
 
-    const {
-      bill_number,
-      due_date,
-      bill_date
-    } = req.body;
+    const billCount = await VendorBill.countDocuments();
+    const defaultBillNum = `Bill/2026/${String(billCount + 1).padStart(4, "0")}`;
+    const defaultDueDate = new Date(Date.now() + 15 * 86400000);
 
-    if (!bill_number || !due_date) {
-      return res.status(400).json({
-        success: false,
-        message: "Bill number and due date are required"
-      });
-    }
+    const bill_number = req.body?.bill_number || defaultBillNum;
+    const due_date = req.body?.due_date || defaultDueDate;
+    const bill_date = req.body?.bill_date || new Date();
 
     const vendorBill = await VendorBill.create({
       bill_number,
