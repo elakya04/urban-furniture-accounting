@@ -9,7 +9,7 @@ import {
   uploadProductImage
 } from "../controllers/productController.js";
 
-import upload from "../middleware/upload.js";
+// import upload from "../middleware/upload.js";
 import uploadProfileImage from "../middleware/upload.js";
 
 const router = express.Router();
@@ -48,7 +48,6 @@ router.post(
 // Upload / replace image
 router.post(
   "/:id/image",
-  upload.single("image"),
   uploadProductImage
 );
 

@@ -10,6 +10,7 @@ import analyticAccountRoutes from "./routes/analyticAccountRoutes.js";
 import purchaseOrderRoutes from "./routes/purchaseOrderRoutes.js";
 import vendorBillRoutes from "./routes/vendorBillRoutes.js";
 import meVendorBillRoutes from "./routes/meVendorBillRoutes.js";
+import contactRouter from "./routes/contactRoutes.js";
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.use("/api/analytic-accounts", analyticAccountRoutes);
 app.use("/api/purchase-orders", purchaseOrderRoutes);
 app.use("/api/vendor-bills", vendorBillRoutes);
 app.use("/api/me", meVendorBillRoutes);
+app.use("/api/contacts",contactRouter);
 
 const PORT = process.env.PORT;
 
