@@ -50,6 +50,7 @@ app.use("/api/vendor-bills", vendorBillRoutes);
 app.use("/api/me", meVendorBillRoutes);
 app.use("/api/contacts", contactRouter);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/payment", paymentRoutes);
 app.use("/api/journal-entries", journalEntryRoutes);
 app.use("/api/ledger", ledgerRoutes);
 app.use("/api/budgets", budgetRoutes);

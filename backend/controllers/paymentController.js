@@ -3,6 +3,8 @@ import Invoice from "../models/Invoice.js";
 import VendorBill from "../models/VendorBill.js";
 import Journal from "../models/Journal.js";
 import JournalEntry from "../models/JournalEntry.js";
+import Razorpay from "razorpay";
+import crypto from "crypto";
 
 
 // Create Payment
@@ -410,3 +412,122 @@ export const cancelPayment = async (req, res) => {
     });
   }
 };
+
+// POST /api/payment/create-order
+export const createOrder = async (req, res) => {
+  try {
+    const { amount, invoiceId, inv_number, customerName } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid payment amount is required"
+      });
+    }
+
+    const key_id = process.env.RAZORPAY_KEY_ID || "rzp_test_TW1Unx3k97P93z";
+    const key_secret = process.env.RAZORPAY_KEY_SECRET || "QQbHLpHVIkvqNNlJcVsMxDWt";
+
+    const razorpay = new Razorpay({
+      key_id,
+      key_secret
+    });
+
+    const amountInPaise = Math.round(Number(amount) * 100);
+
+    const razorpayOrder = await razorpay.orders.create({
+      amount: amountInPaise,
+      currency: "INR",
+      receipt: `rcpt_${Date.now()}`,
+      notes: {
+        invoiceId: invoiceId || "",
+        inv_number: inv_number || "",
+        customerName: customerName || ""
+      }
+    });
+
+    return res.status(201).json({
+      success: true,
+      orderId: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+      currency: razorpayOrder.currency,
+      keyId: key_id
+    });
+  } catch (error) {
+    console.error("[RAZORPAY ORDER ERROR]:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create Razorpay order",
+      error: error.message
+    });
+  }
+};
+
+// POST /api/payment/verify
+export const verifyPayment = async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      invoiceId,
+      amount
+    } = req.body;
+
+    const key_secret = process.env.RAZORPAY_KEY_SECRET || "QQbHLpHVIkvqNNlJcVsMxDWt";
+
+    const expectedSignature = crypto
+      .createHmac("sha256", key_secret)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Razorpay payment signature"
+      });
+    }
+
+    let updatedInvoice = null;
+    let paymentRecord = null;
+
+    // Settle invoice and create Payment if invoiceId provided
+    if (invoiceId) {
+      const invoice = await Invoice.findById(invoiceId);
+      if (invoice) {
+        const payAmount = Number(amount) || invoice.amount_due;
+        invoice.amount_paid = (invoice.amount_paid || 0) + payAmount;
+        invoice.amount_due = Math.max(0, invoice.total_amount - invoice.amount_paid);
+        invoice.status = invoice.amount_due === 0 ? "PAID" : "DUE";
+        await invoice.save();
+        updatedInvoice = invoice;
+
+        // Create Payment record
+        paymentRecord = await Payment.create({
+          invoiceBill: invoice._id,
+          payment_method: "BANK",
+          amount: payAmount,
+          type: "RECEIVE",
+          status: "CONFIRM",
+          date: new Date().toISOString().split("T")[0]
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment verified successfully",
+      paymentId: razorpay_payment_id,
+      orderId: razorpay_order_id,
+      invoice: updatedInvoice,
+      payment: paymentRecord
+    });
+  } catch (error) {
+    console.error("[RAZORPAY VERIFY ERROR]:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Payment verification failed",
+      error: error.message
+    });
+  }
+};

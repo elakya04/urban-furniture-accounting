@@ -5,12 +5,18 @@ import {
   getPayments,
   getPaymentById,
   confirmPayment,
-  cancelPayment
+  cancelPayment,
+  createOrder,
+  verifyPayment
 } from "../controllers/paymentController.js";
 import { protect } from "../middleware/auth.js";
 import { authorize } from "../middleware/rbac.js";
 
 const router = express.Router();
+
+// Razorpay standard checkout endpoints
+router.post("/create-order", createOrder);
+router.post("/verify", verifyPayment);
 
 router.post("/", protect, createPayment);
 router.get("/", protect, authorize("ADMIN", "ACCOUNTANT"), getPayments);

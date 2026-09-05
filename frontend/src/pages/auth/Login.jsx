@@ -240,7 +240,6 @@ function SignUpForm({ onRegister }) {
         <label className={labelCls}>Account Type</label>
         <div className="flex gap-3">
           {[
-            { value: 'ADMIN', label: 'Admin' },
             { value: 'ACCOUNTANT', label: 'Accountant' },
             { value: 'CONTACT', label: 'Contact (Partner)' },
           ].map((opt) => (
