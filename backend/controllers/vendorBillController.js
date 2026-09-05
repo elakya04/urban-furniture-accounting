@@ -301,8 +301,9 @@ export const getVendorBillPdf = async (req, res) => {
 // Vendor self-service: get own bills
 export const getMyVendorBills = async (req, res) => {
   try {
+    const vendorContactId = req.user?.contact_id || req.contactid || req.user?._id;
     const vendorBills = await VendorBill.find({
-      vendor: req.user.contact_id
+      vendor: vendorContactId
     })
       .populate("sales")
       .sort({ createdAt: -1 });
@@ -326,9 +327,10 @@ export const getMyVendorBills = async (req, res) => {
 // Vendor self-service: get own bill
 export const getMyVendorBillById = async (req, res) => {
   try {
+    const vendorContactId = req.user?.contact_id || req.contactid || req.user?._id;
     const vendorBill = await VendorBill.findOne({
       _id: req.params.id,
-      vendor: req.user.contact_id
+      vendor: vendorContactId
     })
       .populate("sales")
       .populate("vendor");
