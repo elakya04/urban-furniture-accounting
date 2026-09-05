@@ -7,7 +7,7 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "dev": "node server.js"
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "cloudinary": "^2.11.0",
@@ -15,6 +15,7 @@
     "express": "^5.2.1",
     "mongoose": "^9.9.5",
     "multer": "^2.3.0",
+    "nodemon": "^3.1.14",
     "razorpay": "^2.9.8"
   },
   "devDependencies": {
