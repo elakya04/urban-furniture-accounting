@@ -231,11 +231,20 @@ export const AppProvider = ({ children }) => {
         // 3. Customer Invoices (for Customers or Both)
         if (contactRole === 'CUSTOMER' || contactRole === 'BOTH' || !contactRole) {
           try {
-            const data = await api.getInvoices();
+            const data = await api.getMyInvoices();
             const list = data?.data || (Array.isArray(data) ? data : []);
-            setInvoices(list);
+            if (list && list.length >= 0) {
+              setInvoices(list);
+            } else {
+              const fallback = await api.getInvoices();
+              setInvoices(fallback?.data || (Array.isArray(fallback) ? fallback : []));
+            }
           } catch (err) {
             console.warn('[APP CONTEXT] Failed to load invoices from API:', err.message);
+            try {
+              const fallback = await api.getInvoices();
+              setInvoices(fallback?.data || (Array.isArray(fallback) ? fallback : []));
+            } catch (_) {}
           }
         }
 

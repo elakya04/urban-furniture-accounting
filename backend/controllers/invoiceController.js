@@ -22,11 +22,44 @@ export async function getInvoices(req, res) {
   console.log(JSON.stringify({
     level: "info",
     event: "invoices_fetch_request",
+    role: req.role,
+    user: req.user?.name,
     timestamp: new Date().toISOString()
   }));
 
   try {
-    const invoices = await Invoice.find()
+    const filter = {};
+    const role = req.role || req.user?.role || req.user?.userType;
+
+    // Strict multi-tenant isolation: Contacts can only see invoices linked to them
+    if (role === "CONTACT") {
+      const customerName = (req.user?.name || "").trim();
+      const loginId = (req.user?.loginId || "").trim();
+      const contactId = req.user?._id || req.contactid;
+
+      const orConditions = [];
+      if (customerName) {
+        const escapedName = customerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        orConditions.push({ customerName: { $regex: new RegExp(`^${escapedName}$`, "i") } });
+        orConditions.push({ customerName: { $regex: new RegExp(escapedName, "i") } });
+      }
+      if (loginId) {
+        const escapedLogin = loginId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        orConditions.push({ customerName: { $regex: new RegExp(escapedLogin, "i") } });
+      }
+      if (contactId) {
+        orConditions.push({ customer: contactId });
+      }
+
+      if (orConditions.length > 0) {
+        filter.$or = orConditions;
+      } else {
+        return res.status(200).json([]);
+      }
+    }
+
+    const invoices = await Invoice.find(filter)
+      .populate("sales")
       .sort({ createdAt: -1 });
 
     console.log(JSON.stringify({
@@ -49,6 +82,45 @@ export async function getInvoices(req, res) {
 
     return res.status(500).json({
       message: err.message
+    });
+  }
+}
+
+// GET /api/me/invoices
+export async function getMyInvoices(req, res) {
+  try {
+    const customerName = (req.user?.name || "").trim();
+    const loginId = (req.user?.loginId || "").trim();
+    const contactId = req.user?._id || req.contactid;
+
+    const orConditions = [];
+    if (customerName) {
+      const escapedName = customerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      orConditions.push({ customerName: { $regex: new RegExp(`^${escapedName}$`, "i") } });
+      orConditions.push({ customerName: { $regex: new RegExp(escapedName, "i") } });
+    }
+    if (loginId) {
+      const escapedLogin = loginId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      orConditions.push({ customerName: { $regex: new RegExp(escapedLogin, "i") } });
+    }
+    if (contactId) {
+      orConditions.push({ customer: contactId });
+    }
+
+    const filter = orConditions.length > 0 ? { $or: orConditions } : { _id: null };
+    const invoices = await Invoice.find(filter)
+      .populate("sales")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      data: invoices
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch customer invoices",
+      error: err.message
     });
   }
 }

@@ -19,16 +19,47 @@ export const CustomerPortal = () => {
   // Use local invoices if updated via Razorpay, otherwise fallback to context invoices
   const activeInvoicesList = localInvoices || invoices;
 
-  // Filter invoices for active customer
+  // Filter invoices strictly for the logged-in customer/contact
+  const isContactUser = 
+    currentUser?.role === 'CONTACT' || 
+    currentUser?.userType === 'CONTACT' || 
+    Boolean(currentUser?.contactRole);
+
   const customerInvoices = activeInvoicesList.filter(inv => {
     if (!inv) return false;
-    if (currentUser?.role === 'CONTACT') {
-      const cName = inv.customerName || (typeof inv.customer === 'object' ? inv.customer?.name : null);
-      if (cName && currentUser?.name) {
-        return cName.toLowerCase().includes(currentUser.name.toLowerCase());
-      }
-      return true;
+
+    // For contacts / customers: STRICTLY only allow invoices matching their identity
+    if (isContactUser) {
+      const invCustomer = (
+        inv.customerName ||
+        (typeof inv.customer === 'object' ? inv.customer?.name : inv.customer) ||
+        (inv.sales && typeof inv.sales === 'object' ? inv.sales?.customerName : '') ||
+        ''
+      ).trim().toLowerCase();
+
+      const userName = (currentUser?.name || '').trim().toLowerCase();
+      const userLoginId = (currentUser?.loginId || '').trim().toLowerCase();
+      const userEmail = (currentUser?.email || '').trim().toLowerCase();
+      const invEmail = (inv.customerEmail || inv.email || '').trim().toLowerCase();
+      const invCustomerId = String(inv.customer?._id || inv.customer || '');
+      const currentUserId = String(currentUser?._id || currentUser?.id || '');
+
+      // 1. Direct Contact ID match
+      if (invCustomerId && currentUserId && invCustomerId === currentUserId) return true;
+
+      // 2. Exact match or containment on Customer Name
+      if (invCustomer && userName && (invCustomer === userName || invCustomer.includes(userName) || userName.includes(invCustomer))) return true;
+
+      // 3. Match against Login ID
+      if (invCustomer && userLoginId && (invCustomer === userLoginId || invCustomer.includes(userLoginId))) return true;
+
+      // 4. Email match
+      if (invEmail && userEmail && invEmail === userEmail) return true;
+
+      // STRICT ISOLATION: Do not show another user's invoice or order
+      return false;
     }
+
     return true;
   });
 
@@ -200,7 +231,17 @@ export const CustomerPortal = () => {
         <p className="text-xs text-slate-500 mt-1">View your past sales orders, customer invoices & settle payments online via Razorpay</p>
       </div>
 
-      <Table columns={columns} data={customerInvoices} />
+      {customerInvoices.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-xs">
+          <Receipt className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <h3 className="text-base font-semibold text-slate-800">No Orders or Invoices Found</h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+            There are currently no sales orders or invoices issued under your account ({currentUser?.name || currentUser?.loginId || 'Customer'}).
+          </p>
+        </div>
+      ) : (
+        <Table columns={columns} data={customerInvoices} />
+      )}
     </div>
   );
 };
