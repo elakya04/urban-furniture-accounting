@@ -79,15 +79,37 @@ export async function register(req,res) {
         }
 
         const token = jwt.sign(
-            {id:contact._id},
+            {
+                id: contact._id,
+                role: contact.userType,
+                userType: contact.userType,
+                contactRole: contactRole || null,
+                name: contact.name,
+                email: contact.email,
+                loginId: contact.loginId
+            },
             process.env.JWT_SECRET,
-            {expiresIn:"7d"}
+            { expiresIn: "1d" }
         );
 
+        const safeUser = {
+            _id: contact._id,
+            name: contact.name,
+            loginId: contact.loginId,
+            email: contact.email,
+            mobile: contact.mobile,
+            userType: contact.userType,
+            role: contact.userType,
+            contactRole: contactRole || null,
+            profileImage: contact.profileImage,
+            isActive: contact.isActive
+        };
+
         return res.status(201).json({
-            message:"User and Contact created successfully",
+            message: "User and Contact created successfully",
             token,
-            contact,
+            user: safeUser,
+            contact: safeUser
         });
 
     }catch(err){
@@ -169,11 +191,18 @@ export async function login(req,res) {
 
     try{
         const contact = await Contact.findOne({loginId})
-            .select("+password");
+            .select("+password")
+            .populate("user");
 
         if(!contact){
             return res.status(404).json({
                 message:"Invalid email or password"
+            });
+        }
+
+        if(contact.isActive === false){
+            return res.status(403).json({
+                message:"Account has been deactivated"
             });
         }
 
@@ -188,30 +217,40 @@ export async function login(req,res) {
             });
         }
 
-        // const user = await User.findById(contact.user);
-
-        // if(!user){
-        //     return res.status(404).json({
-        //         message:"User not found"
-        //     });
-        // }
-
-        // if(!user.isActive){
-        //     return res.status(403).json({
-        //         message:"User account is inactive"
-        //     });
-        // }
+        const contactRole = contact.user?.contact_role || null;
 
         const token = jwt.sign(
-            {id:contact._id},
+            {
+                id: contact._id,
+                role: contact.userType,
+                userType: contact.userType,
+                contactRole: contactRole,
+                name: contact.name,
+                email: contact.email,
+                loginId: contact.loginId
+            },
             process.env.JWT_SECRET,
-            {expiresIn:"7d"}
+            { expiresIn: "1d" }
         );
 
+        const safeUser = {
+            _id: contact._id,
+            name: contact.name,
+            loginId: contact.loginId,
+            email: contact.email,
+            mobile: contact.mobile,
+            userType: contact.userType,
+            role: contact.userType,
+            contactRole: contactRole,
+            profileImage: contact.profileImage,
+            isActive: contact.isActive
+        };
+
         return res.status(200).json({
-            message:"Logged in successfully!",
+            message: "Logged in successfully!",
             token,
-            contact
+            user: safeUser,
+            contact: safeUser
         });
 
     }catch(err){

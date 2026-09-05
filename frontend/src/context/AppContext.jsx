@@ -58,54 +58,188 @@ export const AppProvider = ({ children }) => {
   };
 
   // Contacts
-  const addContact = (data) => {
-    const newContact = { ...data, _id: `contact_${Date.now()}` };
-    setContacts(prev => [newContact, ...prev]);
-    showToast(`Contact "${data.name}" created successfully`, 'success');
-    addAuditLog('CREATE_CONTACT', `Added contact ${data.name}`);
-    api.createContact(data);
+  const addContact = async (data) => {
+    try {
+      const res = await api.createContact(data);
+      const created = res?.data || { ...data, _id: `contact_${Date.now()}` };
+      setContacts(prev => [created, ...prev]);
+      showToast(`Contact "${created.name}" created successfully`, 'success');
+      addAuditLog('CREATE_CONTACT', `Added contact ${created.name}`);
+      return created;
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error creating contact on backend:', err.message);
+      const fallback = { ...data, _id: `contact_${Date.now()}` };
+      setContacts(prev => [fallback, ...prev]);
+      showToast(`Contact "${data.name}" created locally`, 'info');
+      return fallback;
+    }
   };
 
   // Products
-  const addProduct = (data) => {
-    const newProduct = {
-      ...data,
-      _id: `prod_${Date.now()}`,
-      isActive: true,
-      stockQuantity: Number(data.stockQuantity || 0)
-    };
-    setProducts(prev => [newProduct, ...prev]);
-    showToast(`Product "${data.productName}" added to Master List`, 'success');
-    addAuditLog('CREATE_PRODUCT', `Added product ${data.productName}`);
-    api.createProduct(data);
+  const addProduct = async (data) => {
+    try {
+      const res = await api.createProduct(data);
+      const created = res?.data || res?.product || {
+        ...data,
+        _id: `prod_${Date.now()}`,
+        isActive: true,
+        stockQuantity: Number(data.stockQuantity || 0)
+      };
+      setProducts(prev => [created, ...prev]);
+      showToast(`Product "${created.productName}" added to Master List`, 'success');
+      addAuditLog('CREATE_PRODUCT', `Added product ${created.productName}`);
+      return created;
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error creating product on backend:', err.message);
+      const fallbackProduct = {
+        ...data,
+        _id: `prod_${Date.now()}`,
+        isActive: true,
+        stockQuantity: Number(data.stockQuantity || 0)
+      };
+      setProducts(prev => [fallbackProduct, ...prev]);
+      showToast(`Product "${data.productName}" added locally`, 'info');
+      return fallbackProduct;
+    }
+  };
+
+  const archiveProduct = async (productId) => {
+    const prod = products.find(p => p._id === productId);
+    const nextStatus = prod ? !prod.isActive : false;
+    try {
+      if (nextStatus) {
+        await api.updateProduct(productId, { isActive: true });
+      } else {
+        await api.archiveProduct(productId);
+      }
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error toggling product status on backend:', err.message);
+    }
+    setProducts(prev => prev.map(p => p._id === productId ? { ...p, isActive: nextStatus } : p));
+    showToast(`Product status updated to ${nextStatus ? 'Active' : 'Archived'}`, 'info');
+    addAuditLog('ARCHIVE_PRODUCT', `Updated status for product ${productId} to ${nextStatus}`);
+  };
+
+  const updateProductInState = (updatedProduct) => {
+    setProducts(prev => prev.map(p => p._id === updatedProduct._id ? { ...p, ...updatedProduct } : p));
   };
 
   // Chart of Accounts
-  const addCOA = (data) => {
-    const newAcc = { ...data, _id: `coa_${Date.now()}`, isActive: true };
-    setCOA(prev => [...prev, newAcc]);
-    showToast(`Account "${data.accountName}" created`, 'success');
-    addAuditLog('CREATE_COA', `Created COA account ${data.accountName}`);
-    api.createAccount(data);
+  const addCOA = async (data) => {
+    try {
+      const res = await api.createAccount(data);
+      const created = res?.data || { ...data, _id: `coa_${Date.now()}`, isActive: true };
+      setCOA(prev => [created, ...prev]);
+      showToast(`Account "${created.accountName}" created`, 'success');
+      addAuditLog('CREATE_COA', `Created COA account ${created.accountName}`);
+      return created;
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error creating account on backend:', err.message);
+      const fallbackAcc = { ...data, _id: `coa_${Date.now()}`, isActive: true };
+      setCOA(prev => [fallbackAcc, ...prev]);
+      showToast(`Account "${data.accountName}" created locally`, 'info');
+      return fallbackAcc;
+    }
+  };
+
+  const toggleAccountStatus = async (accountId, currentStatus) => {
+    const nextStatus = !currentStatus;
+    try {
+      await api.updateAccountStatus(accountId, nextStatus);
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error toggling account status on backend:', err.message);
+    }
+    setCOA(prev => prev.map(acc => acc._id === accountId ? { ...acc, isActive: nextStatus } : acc));
+    showToast(`Account status updated to ${nextStatus ? 'Active' : 'Archived'}`, 'info');
+    addAuditLog('STATUS_COA', `Updated account ${accountId} status to ${nextStatus}`);
   };
 
   // Journals
-  const addJournal = (data) => {
-    const newJournal = { ...data, _id: `j_${Date.now()}` };
-    setJournals(prev => [...prev, newJournal]);
-    showToast(`Journal "${data.journalName}" created`, 'success');
-    addAuditLog('CREATE_JOURNAL', `Created journal ${data.journalName}`);
-    api.createJournal(data);
+  const addJournal = async (data) => {
+    const payload = { ...data };
+    if (!payload.def_debitAcc) delete payload.def_debitAcc;
+    if (!payload.def_creditAcc) delete payload.def_creditAcc;
+
+    try {
+      const res = await api.createJournal(payload);
+      const created = res?.data || { ...payload, _id: `j_${Date.now()}` };
+      setJournals(prev => [created, ...prev]);
+      showToast(`Journal "${created.journalName}" created`, 'success');
+      addAuditLog('CREATE_JOURNAL', `Created journal ${created.journalName}`);
+      return created;
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error creating journal on backend:', err.message);
+      const fallbackJournal = { ...payload, _id: `j_${Date.now()}` };
+      setJournals(prev => [fallbackJournal, ...prev]);
+      showToast(`Journal "${data.journalName}" created locally`, 'info');
+      return fallbackJournal;
+    }
   };
 
   // Analytic Accounts
-  const addAnalyticAccount = (data) => {
-    const newAnalytic = { ...data, _id: `an_${Date.now()}` };
-    setAnalyticAccounts(prev => [...prev, newAnalytic]);
-    showToast(`Analytic Account "${data.name}" created`, 'success');
-    addAuditLog('CREATE_ANALYTIC', `Created analytic account ${data.name}`);
-    api.createAnalyticAccount(data);
+  const addAnalyticAccount = async (data) => {
+    try {
+      const res = await api.createAnalyticAccount(data);
+      const created = res?.data || { ...data, _id: `an_${Date.now()}` };
+      setAnalyticAccounts(prev => [created, ...prev]);
+      showToast(`Analytic Account "${created.name}" created`, 'success');
+      addAuditLog('CREATE_ANALYTIC', `Created analytic account ${created.name}`);
+      return created;
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error creating analytic account on backend:', err.message);
+      const fallbackAnalytic = { ...data, _id: `an_${Date.now()}` };
+      setAnalyticAccounts(prev => [fallbackAnalytic, ...prev]);
+      showToast(`Analytic Account "${data.name}" created locally`, 'info');
+      return fallbackAnalytic;
+    }
   };
+
+  // Auto-fetch master data from backend API on mount
+  useEffect(() => {
+    const loadMasterData = async () => {
+      try {
+        const res = await api.getProducts();
+        const list = res?.data || (Array.isArray(res) ? res : []);
+        if (list.length > 0) setProducts(list);
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load products from API:', err.message);
+      }
+
+      try {
+        const res = await api.getAccounts();
+        const list = res?.data || (Array.isArray(res) ? res : []);
+        if (list.length > 0) setCOA(list);
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load accounts from API:', err.message);
+      }
+
+      try {
+        const res = await api.getJournals();
+        const list = res?.data || (Array.isArray(res) ? res : []);
+        if (list.length > 0) setJournals(list);
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load journals from API:', err.message);
+      }
+
+      try {
+        const res = await api.getAnalyticAccounts();
+        const list = res?.data || (Array.isArray(res) ? res : []);
+        if (list.length > 0) setAnalyticAccounts(list);
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load analytic accounts from API:', err.message);
+      }
+
+      try {
+        const res = await api.getContacts();
+        const list = res?.data || (Array.isArray(res) ? res : []);
+        if (list.length > 0) setContacts(list);
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load contacts from API:', err.message);
+      }
+    };
+
+    loadMasterData();
+  }, []);
 
   // Auto-fetch Sales Orders from backend API on mount
   useEffect(() => {
@@ -540,7 +674,10 @@ export const AppProvider = ({ children }) => {
         showToast,
         addContact,
         addProduct,
+        archiveProduct,
+        updateProductInState,
         addCOA,
+        toggleAccountStatus,
         addJournal,
         addAnalyticAccount,
         addSalesOrder,

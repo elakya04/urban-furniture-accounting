@@ -10,12 +10,24 @@ export const JournalsPage = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [formData, setFormData] = useState({ journalName: '', type: 'SALES', def_debitAcc: '', def_creditAcc: '' });
 
-  const getAccName = (id) => coa.find(c => c._id === id)?.accountName || '-';
+  const getAccName = (acc) => {
+    if (!acc) return '-';
+    if (typeof acc === 'object' && acc.accountName) return acc.accountName;
+    const id = typeof acc === 'object' ? acc._id : acc;
+    const found = coa.find(c => c._id === id);
+    return found?.accountName || (typeof acc === 'string' ? acc : '-');
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.journalName) return;
-    addJournal(formData);
+    const payload = {
+      journalName: formData.journalName,
+      type: formData.type,
+      ...(formData.def_debitAcc ? { def_debitAcc: formData.def_debitAcc } : {}),
+      ...(formData.def_creditAcc ? { def_creditAcc: formData.def_creditAcc } : {})
+    };
+    addJournal(payload);
     setIsAddModalOpen(false);
     setFormData({ journalName: '', type: 'SALES', def_debitAcc: '', def_creditAcc: '' });
   };

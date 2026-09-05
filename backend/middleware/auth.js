@@ -9,7 +9,7 @@ export async function protect(req, res, next) {
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
         return res.status(401).json({
-            message: "Unauthorized"
+            message: "Unauthorized: Missing or malformed token"
         });
     }
 
@@ -21,6 +21,26 @@ export async function protect(req, res, next) {
             process.env.JWT_SECRET
         );
 
+        // Fast path: Token carries verified role & user info (ZERO DB queries needed)
+        if (decoded.role || decoded.userType) {
+            req.contactid = decoded.id;
+            req.role = decoded.role || decoded.userType;
+            req.userType = decoded.userType || decoded.role;
+            req.contactRole = decoded.contactRole || null;
+            req.user = {
+                _id: decoded.id,
+                contact_id: decoded.id,
+                role: req.role,
+                userType: req.userType,
+                contact_role: req.contactRole,
+                name: decoded.name,
+                email: decoded.email,
+                loginId: decoded.loginId
+            };
+            return next();
+        }
+
+        // Fallback for legacy tokens without embedded role: single DB lookup
         const contact = await Contact.findById(decoded.id).populate("user");
 
         if (!contact) {
@@ -29,7 +49,7 @@ export async function protect(req, res, next) {
             });
         }
 
-        if (!contact.isActive) {
+        if (contact.isActive === false) {
             return res.status(403).json({
                 message: "Account has been deactivated"
             });
@@ -44,7 +64,11 @@ export async function protect(req, res, next) {
             _id: contact._id,
             contact_id: contact._id,
             role: contact.userType,
-            contact_role: contact.user?.contact_role
+            userType: contact.userType,
+            contact_role: contact.user?.contact_role,
+            name: contact.name,
+            email: contact.email,
+            loginId: contact.loginId
         };
 
         next();

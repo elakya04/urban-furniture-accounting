@@ -5,8 +5,9 @@ const BASE_URL = '/api';
 async function fetchJSON(url, options = {}, throwOnError = false) {
   try {
     const token = localStorage.getItem('uf_token');
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const headers = {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {})
     };
@@ -65,11 +66,12 @@ export const api = {
   uploadProductImage: (id, formData) => fetchJSON(`/products/${id}/image`, { method: 'POST', body: formData }),
 
   // Chart of Accounts (COA)
-  getAccounts: () => fetchJSON('/accounts'),
+  getAccounts: (params = '') => fetchJSON(`/accounts${params ? `?${params}` : ''}`),
   getAccountById: (id) => fetchJSON(`/accounts/${id}`),
   createAccount: (data) => fetchJSON('/accounts', { method: 'POST', body: JSON.stringify(data) }),
   updateAccount: (id, data) => fetchJSON(`/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  archiveAccount: (id) => fetchJSON(`/accounts/${id}/archive`, { method: 'POST' }),
+  updateAccountStatus: (id, isActive) => fetchJSON(`/accounts/${id}/status`, { method: 'PATCH', body: JSON.stringify({ isActive }) }),
+  archiveAccount: (id) => fetchJSON(`/accounts/${id}/status`, { method: 'PATCH', body: JSON.stringify({ isActive: false }) }),
   getAccountLedger: (id) => fetchJSON(`/accounts/${id}/ledger`),
 
   // Journals

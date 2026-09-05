@@ -48,12 +48,14 @@ export const AuthProvider = ({ children }) => {
       console.log('[AUTH CONTEXT] Attempting login for:', loginId);
       const res = await api.login({ loginId, password });
 
-      if (res && res.token && res.contact) {
-        console.log('[AUTH CONTEXT] Login successful! Received token and contact:', res.contact);
+      if (res && res.token && (res.user || res.contact)) {
+        const userData = res.user || res.contact;
+        console.log('[AUTH CONTEXT] Login successful! Received token and user:', userData);
         localStorage.setItem('uf_token', res.token);
-        localStorage.setItem('uf_user', JSON.stringify(res.contact));
-        setCurrentUser(res.contact);
-        return res.contact;
+        localStorage.setItem('uf_user', JSON.stringify(userData));
+        localStorage.setItem('uf_role', userData.role || userData.userType || 'CONTACT');
+        setCurrentUser(userData);
+        return userData;
       }
       throw new Error(res?.message || 'Login failed. Invalid response from server.');
     } catch (err) {
@@ -67,9 +69,12 @@ export const AuthProvider = ({ children }) => {
           name: loginId,
           loginId,
           userType: 'ADMIN',
+          role: 'ADMIN',
           email: `${loginId}@example.com`,
         };
+        localStorage.setItem('uf_token', 'mock_token_1d');
         localStorage.setItem('uf_user', JSON.stringify(mockUser));
+        localStorage.setItem('uf_role', 'ADMIN');
         setCurrentUser(mockUser);
         return mockUser;
       }
@@ -81,13 +86,11 @@ export const AuthProvider = ({ children }) => {
   /**
    * register(payload)
    * Calls POST /api/auth/register
-   * Expects payload: { name, loginId, userType, contactRole, email, mobile, city, state, pincode, profile, password }
    */
   const register = async (payload) => {
     try {
       console.log('[AUTH CONTEXT] Registering new account:', payload.loginId);
 
-      // Ensure profile parameter is passed (backend model requires profile string)
       const fullPayload = {
         profile: 'https://via.placeholder.com/150',
         ...payload,
@@ -95,19 +98,20 @@ export const AuthProvider = ({ children }) => {
 
       const res = await api.register(fullPayload);
 
-      if (res && res.token && res.contact) {
-        console.log('[AUTH CONTEXT] Registration successful! Created contact:', res.contact);
+      if (res && res.token && (res.user || res.contact)) {
+        const userData = res.user || res.contact;
+        console.log('[AUTH CONTEXT] Registration successful! Created user:', userData);
         localStorage.setItem('uf_token', res.token);
-        localStorage.setItem('uf_user', JSON.stringify(res.contact));
-        setCurrentUser(res.contact);
-        return res.contact;
+        localStorage.setItem('uf_user', JSON.stringify(userData));
+        localStorage.setItem('uf_role', userData.role || userData.userType || 'CONTACT');
+        setCurrentUser(userData);
+        return userData;
       }
 
       throw new Error(res?.message || 'Registration failed.');
     } catch (err) {
       console.error('[AUTH CONTEXT] Registration Error:', err.message);
 
-      // Fallback for local frontend demo testing if backend database is offline
       if (err.message.includes('Failed to fetch') || err.message.includes('503')) {
         console.warn('[AUTH CONTEXT] Backend server offline. Falling back to local registration.');
         const mockUser = {
@@ -116,9 +120,12 @@ export const AuthProvider = ({ children }) => {
           loginId: payload.loginId,
           email: payload.email,
           userType: payload.userType,
+          role: payload.userType,
           contactRole: payload.contactRole || null,
         };
+        localStorage.setItem('uf_token', 'mock_token_1d');
         localStorage.setItem('uf_user', JSON.stringify(mockUser));
+        localStorage.setItem('uf_role', payload.userType);
         setCurrentUser(mockUser);
         return mockUser;
       }
@@ -140,15 +147,22 @@ export const AuthProvider = ({ children }) => {
     } finally {
       localStorage.removeItem('uf_token');
       localStorage.removeItem('uf_user');
+      localStorage.removeItem('uf_role');
       setCurrentUser(null);
       console.log('[AUTH CONTEXT] User session cleared successfully.');
     }
   };
 
+  const userRole = currentUser?.role || currentUser?.userType || 'CONTACT';
+
   return (
     <AuthContext.Provider
       value={{
         currentUser,
+        userRole,
+        isAdmin: userRole === 'ADMIN',
+        isAccountant: ['ADMIN', 'ACCOUNTANT'].includes(userRole),
+        isContact: userRole === 'CONTACT',
         isAuthenticated: Boolean(currentUser),
         loading,
         login,
