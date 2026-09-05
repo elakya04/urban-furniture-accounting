@@ -2,18 +2,17 @@ import mongoose from "mongoose";
 
 const contactSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
+  loginId: {type: String, required: true, unique: true, minlength: 6, maxlength: 12},
   userType: {
     type: String,
-    enum: ["CUSTOMER", "VENDOR", "BOTH"],
+    enum: ["ACCOUNTANT","CONTACT","ADMIN"],
     required: true
   },
   email: { type: String, required: true, trim: true, lowercase: true },
   mobile: { type: Number, required: true },
-  address: {
-    city: String,
-    state: String,
-    pincode: String
-  },
+  city: {type: String, required: true},
+  state: {type: String, required: true},
+  pincode: {type: String, required: true},
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   profileImage: {
     type: String,

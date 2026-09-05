@@ -10,6 +10,7 @@
     "dev": "node server.js"
   },
   "dependencies": {
+<<<<<<< HEAD
     "cloudinary": "^2.11.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
@@ -18,5 +19,12 @@
   },
   "devDependencies": {
     "mongodb-memory-server": "^11.2.0"
+=======
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.9.5"
+>>>>>>> 411df41f10cc89e2464b040a6887eddbaa07b2ae
   }
 }
