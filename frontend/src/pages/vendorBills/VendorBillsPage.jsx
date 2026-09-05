@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { Table } from '../../components/common/Table';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
@@ -9,6 +10,7 @@ import { generateInvoicePDF } from '../../utils/pdfExporter';
 
 export const VendorBillsPage = () => {
   const { vendorBills, confirmVendorBill, processPayment, showToast } = useApp();
+  const { isContact, isAdmin, isAccountant } = useAuth();
   const [selectedBill, setSelectedBill] = useState(null);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
 
@@ -34,7 +36,7 @@ export const VendorBillsPage = () => {
 
     processPayment({
       vendorbill: selectedBill._id,
-      partnerName: selectedBill.vendorName,
+      partnerName: selectedBill.vendor?.name || selectedBill.vendorName || 'Vendor',
       payment_method: payFormData.payment_method,
       amount: Number(payFormData.amount),
       type: 'SEND',
@@ -54,18 +56,24 @@ export const VendorBillsPage = () => {
         </div>
       )
     },
-    { header: 'Bill Reference', accessor: 'bill_reference' },
-    { header: 'Vendor Name', accessor: 'vendorName' },
+    {
+      header: 'Bill Reference',
+      cell: (row) => <span>{row.bill_reference || (row.sales?.po_number ? `REF-${row.sales.po_number}` : (row.sales ? 'PO Ref' : '-'))}</span>
+    },
+    {
+      header: 'Vendor Name',
+      cell: (row) => <span>{row.vendor?.name || row.vendorName || 'Vendor'}</span>
+    },
     { header: 'Bill Date', cell: (row) => formatDate(row.bill_date) },
     { header: 'Due Date', cell: (row) => formatDate(row.due_date) },
-    { header: 'Total', cell: (row) => formatCurrency(row.total) },
-    { header: 'Amount Due', cell: (row) => <span className="font-semibold text-slate-900">{formatCurrency(row.amount_due ?? row.total)}</span> },
+    { header: 'Total', cell: (row) => formatCurrency(row.total ?? 0) },
+    { header: 'Amount Due', cell: (row) => <span className="font-semibold text-slate-900">{formatCurrency(row.amount_due ?? row.total ?? 0)}</span> },
     { header: 'Status', cell: (row) => <Badge status={row.status} /> },
     {
       header: 'Actions',
       cell: (row) => (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          {row.status === 'DRAFT' && (
+          {row.status === 'DRAFT' && !isContact && (
             <button
               onClick={() => confirmVendorBill(row._id)}
               className="px-2.5 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-medium transition-colors"
@@ -74,7 +82,7 @@ export const VendorBillsPage = () => {
             </button>
           )}
 
-          {(row.status === 'DUE' || row.status === 'OVERDUE') && (
+          {(row.status === 'DUE' || row.status === 'OVERDUE') && !isContact && (
             <button
               onClick={() => handlePayClick(row)}
               className="flex items-center gap-1 px-3 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors"
@@ -84,7 +92,7 @@ export const VendorBillsPage = () => {
           )}
 
           <button
-            onClick={() => generateInvoicePDF(row, row.vendorName)}
+            onClick={() => generateInvoicePDF(row, row.vendor?.name || row.vendorName || 'Vendor')}
             title="Download PDF Bill"
             className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
           >
@@ -113,7 +121,7 @@ export const VendorBillsPage = () => {
             {/* Action Bar & Stage Status */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div className="flex items-center gap-2">
-                {selectedBill.status === 'DRAFT' && (
+                {selectedBill.status === 'DRAFT' && !isContact && (
                   <button
                     onClick={() => { confirmVendorBill(selectedBill._id); setSelectedBill(null); }}
                     className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold rounded-lg shadow-xs"
@@ -121,7 +129,7 @@ export const VendorBillsPage = () => {
                     Confirm & Post Purchase Journal Entry
                   </button>
                 )}
-                {(selectedBill.status === 'DUE' || selectedBill.status === 'OVERDUE') && (
+                {(selectedBill.status === 'DUE' || selectedBill.status === 'OVERDUE') && !isContact && (
                   <button
                     onClick={() => handlePayClick(selectedBill)}
                     className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs"
@@ -131,7 +139,7 @@ export const VendorBillsPage = () => {
                 )}
 
                 <button
-                  onClick={() => generateInvoicePDF(selectedBill, selectedBill.vendorName)}
+                  onClick={() => generateInvoicePDF(selectedBill, selectedBill.vendor?.name || selectedBill.vendorName || 'Vendor')}
                   className="flex items-center gap-1 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg"
                 >
                   <Printer className="w-4 h-4 text-slate-500" /> Print PDF
@@ -165,15 +173,15 @@ export const VendorBillsPage = () => {
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">Bill Reference:</span>
-                <div className="text-base font-bold text-slate-800">{selectedBill.bill_reference || 'ABC-26-001'}</div>
+                <div className="text-base font-bold text-slate-800">{selectedBill.bill_reference || (selectedBill.sales?.po_number ? `REF-${selectedBill.sales.po_number}` : 'Direct Bill')}</div>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">Vendor Name:</span>
-                <div className="text-base font-bold text-slate-800">{selectedBill.vendorName}</div>
+                <div className="text-base font-bold text-slate-800">{selectedBill.vendor?.name || selectedBill.vendorName || 'Vendor'}</div>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">PO Reference:</span>
-                <div className="font-semibold text-sky-600">{selectedBill.sales || 'P00001'}</div>
+                <div className="font-semibold text-sky-600">{selectedBill.sales?.po_number || (selectedBill.sales ? `Linked PO` : 'Direct Bill')}</div>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">Bill Date:</span>

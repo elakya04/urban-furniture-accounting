@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { Table } from '../../components/common/Table';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
@@ -9,20 +10,38 @@ import { validateJournalEntryBalance } from '../../utils/accountingMath';
 
 export const JournalEntriesPage = () => {
   const { journalEntries, coa, contacts, journals, addJournalEntry, reverseJournalEntry } = useApp();
+  const { isContact, isAdmin, isAccountant } = useAuth();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedJE, setSelectedJE] = useState(null);
 
   const [formData, setFormData] = useState({
     number: `JE/2026/${String(journalEntries.length + 1).padStart(4, '0')}`,
     date: new Date().toISOString().split('T')[0],
-    journal: journals[0]?._id || '',
-    partnerName: contacts[0]?.name || ''
+    journal: '',
+    partnerName: ''
   });
 
-  const [items, setItems] = useState([
-    { account: coa[0]?._id || '', partner: contacts[0]?.name || '', debit: 10000, credit: 0 },
-    { account: coa[1]?._id || '', partner: contacts[0]?.name || '', debit: 0, credit: 10000 }
-  ]);
+  const [items, setItems] = useState([]);
+
+  // Dynamically initialize defaults once master data loads
+  useEffect(() => {
+    if (!formData.journal && journals.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        journal: journals[0]._id,
+        partnerName: contacts[0]?.name || ''
+      }));
+    }
+  }, [journals, contacts]);
+
+  useEffect(() => {
+    if (coa.length >= 2 && items.length === 0) {
+      setItems([
+        { account: coa[0]._id, partner: contacts[0]?.name || '', debit: 10000, credit: 0 },
+        { account: coa[1]._id, partner: contacts[0]?.name || '', debit: 0, credit: 10000 }
+      ]);
+    }
+  }, [coa, contacts, items.length]);
 
   const handleItemChange = (index, field, value) => {
     const updated = [...items];
@@ -54,8 +73,10 @@ export const JournalEntriesPage = () => {
       journal: formData.journal,
       journalName: journalObj?.journalName || 'General',
       journalItems: items.map(i => ({
-        ...i,
-        accountName: coa.find(c => c._id === i.account)?.accountName || 'GL Account'
+        account: i.account,
+        accountName: coa.find(c => c._id === i.account)?.accountName || 'GL Account',
+        debit: Number(i.debit || 0),
+        credit: Number(i.credit || 0)
       }))
     });
 
@@ -70,20 +91,34 @@ export const JournalEntriesPage = () => {
       cell: (row) => (
         <div className="flex items-center gap-2">
           <History className="w-4 h-4 text-slate-400" />
-          <span className="font-semibold text-slate-800">{row.number}</span>
+          <span className="font-semibold text-slate-800">
+            {row.inv_bill || row.number || (row._id ? `JE-${row._id.slice(-6)}` : 'JE')}
+          </span>
         </div>
       )
     },
     { header: 'Date', cell: (row) => formatDate(row.date) },
-    { header: 'Journal', accessor: 'journalName' },
-    { header: 'Partner', accessor: 'partnerName' },
-    { header: 'Total (Debit = Credit)', cell: (row) => <span className="font-bold text-slate-900">{formatCurrency(row.total)}</span> },
+    {
+      header: 'Journal',
+      cell: (row) => <span>{row.journal?.journalName || row.journalName || 'General'}</span>
+    },
+    {
+      header: 'Partner',
+      cell: (row) => <span>{row.partnerName || row.sourceId?.vendorName || row.sourceId?.customerName || '-'}</span>
+    },
+    {
+      header: 'Total (Debit = Credit)',
+      cell: (row) => {
+        const total = row.total ?? (row.journalItems || []).reduce((sum, item) => sum + (Number(item.debit) || 0), 0);
+        return <span className="font-bold text-slate-900">{formatCurrency(total)}</span>;
+      }
+    },
     { header: 'Status', cell: (row) => <Badge status={row.status} /> },
     {
       header: 'Actions',
       cell: (row) => (
         <div onClick={(e) => e.stopPropagation()}>
-          {!row.number?.startsWith('REV/') && (
+          {!row.number?.startsWith('REV/') && !isContact && (
             <button
               onClick={() => reverseJournalEntry(row._id)}
               className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium transition-colors"
@@ -101,15 +136,17 @@ export const JournalEntriesPage = () => {
       <div className="flex items-center justify-between bg-white p-6 rounded-2xl border border-slate-200">
         <div>
           <h2 className="text-xl font-bold text-slate-800 tracking-tight">Journal Entries (Double-Entry Ledger)</h2>
-          <p className="text-xs text-slate-500 mt-1">Balanced Accounting Journal Entries with Reversal support</p>
+          <p className="text-xs text-slate-500 mt-1">Balanced Accounting Journal Entries with Real-time Reversal</p>
         </div>
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800"
-        >
-          <Plus className="w-4 h-4" />
-          New Journal Entry
-        </button>
+        {!isContact && (
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800"
+          >
+            <Plus className="w-4 h-4" />
+            New Journal Entry
+          </button>
+        )}
       </div>
 
       <Table columns={columns} data={journalEntries} onRowClick={(row) => setSelectedJE(row)} />
@@ -260,13 +297,17 @@ export const JournalEntriesPage = () => {
       </Modal>
 
       {/* Detail Drawer */}
-      <Modal isOpen={Boolean(selectedJE)} onClose={() => setSelectedJE(null)} title={`Journal Entry Details: ${selectedJE?.number || ''}`}>
+      <Modal
+        isOpen={Boolean(selectedJE)}
+        onClose={() => setSelectedJE(null)}
+        title={`Journal Entry Details: ${selectedJE?.inv_bill || selectedJE?.number || (selectedJE?._id ? `JE-${selectedJE._id.slice(-6)}` : '')}`}
+      >
         {selectedJE && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
               <div><span className="text-slate-400">Date:</span> <span className="font-semibold text-slate-800">{formatDate(selectedJE.date)}</span></div>
-              <div><span className="text-slate-400">Journal:</span> <span className="font-semibold text-slate-800">{selectedJE.journalName}</span></div>
-              <div><span className="text-slate-400">Partner:</span> <span className="font-semibold text-slate-800">{selectedJE.partnerName}</span></div>
+              <div><span className="text-slate-400">Journal:</span> <span className="font-semibold text-slate-800">{selectedJE.journal?.journalName || selectedJE.journalName || 'General'}</span></div>
+              <div><span className="text-slate-400">Partner:</span> <span className="font-semibold text-slate-800">{selectedJE.partnerName || selectedJE.sourceId?.vendorName || selectedJE.sourceId?.customerName || '-'}</span></div>
               <div><span className="text-slate-400">Status:</span> <Badge status={selectedJE.status} /></div>
             </div>
 
@@ -285,7 +326,7 @@ export const JournalEntriesPage = () => {
                   <tbody className="divide-y divide-slate-100">
                     {selectedJE.journalItems?.map((item, idx) => (
                       <tr key={idx}>
-                        <td className="p-2.5 font-medium text-slate-800">{item.accountName || item.account}</td>
+                        <td className="p-2.5 font-medium text-slate-800">{item.account?.accountName || item.accountName || item.account}</td>
                         <td className="p-2.5 text-slate-500">{item.partner || '-'}</td>
                         <td className="p-2.5 text-right font-medium">{item.debit ? formatCurrency(item.debit) : '-'}</td>
                         <td className="p-2.5 text-right font-medium">{item.credit ? formatCurrency(item.credit) : '-'}</td>

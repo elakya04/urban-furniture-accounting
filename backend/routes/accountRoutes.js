@@ -9,16 +9,19 @@ import {
   getAccountLedger
 } from "../controllers/accountController.js";
 import { protect } from "../middleware/auth.js";
+import { authorize } from "../middleware/rbac.js";
 
 const router = express.Router();
 
-router.post("/", protect, createAccount);
-router.get("/", protect, getAccounts);
+router.use(protect, authorize("ADMIN", "ACCOUNTANT"));
 
-router.get("/:id", protect, getAccountById);
-router.patch("/:id", protect, updateAccount);
-router.patch("/:id/status", protect, updateAccountStatus);
+router.post("/", createAccount);
+router.get("/", getAccounts);
 
-router.get("/:id/ledger", protect, getAccountLedger);
+router.get("/:id", getAccountById);
+router.patch("/:id", updateAccount);
+router.patch("/:id/status", authorize("ADMIN"), updateAccountStatus);
+
+router.get("/:id/ledger", getAccountLedger);
 
 export default router;

@@ -7,13 +7,16 @@ import {
   updateJournal
 } from "../controllers/journalController.js";
 import { protect } from "../middleware/auth.js";
+import { authorize } from "../middleware/rbac.js";
 
 const router = express.Router();
 
-router.post("/", protect, createJournal);
-router.get("/", protect, getJournals);
+router.use(protect, authorize("ADMIN", "ACCOUNTANT"));
 
-router.get("/:id", protect, getJournalById);
-router.patch("/:id", protect, updateJournal);
+router.post("/", createJournal);
+router.get("/", getJournals);
+
+router.get("/:id", getJournalById);
+router.patch("/:id", updateJournal);
 
 export default router;

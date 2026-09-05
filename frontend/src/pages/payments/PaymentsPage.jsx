@@ -1,36 +1,96 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { Table } from '../../components/common/Table';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
-import { CreditCard, ArrowUpRight, ArrowDownRight, Plus } from 'lucide-react';
+import { CreditCard, ArrowUpRight, ArrowDownRight, Plus, FileText } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 
 export const PaymentsPage = () => {
-  const { payments, contacts, processPayment } = useApp();
+  const { payments, invoices, vendorBills, contacts, processPayment } = useApp();
+  const { isContact, isAdmin, isAccountant } = useAuth();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     type: 'RECEIVE',
-    partnerName: contacts[0]?.name || 'Partner',
+    invoiceBill: '',
+    vendorbill: '',
+    partnerName: '',
     amount: '',
     payment_method: 'BANK',
     note: ''
   });
 
-  const handleSubmit = (e) => {
+  // Filter eligible open documents
+  const openInvoices = invoices.filter(inv => inv.status !== 'CANCEL' && inv.status !== 'DRAFT');
+  const openVendorBills = vendorBills.filter(b => b.status !== 'CANCELLED' && b.status !== 'DRAFT');
+
+  // When changing type, set default document
+  useEffect(() => {
+    if (formData.type === 'RECEIVE') {
+      const firstInv = openInvoices[0];
+      if (firstInv) {
+        setFormData(prev => ({
+          ...prev,
+          invoiceBill: firstInv._id,
+          vendorbill: '',
+          partnerName: firstInv.customerName || 'Customer',
+          amount: firstInv.amount_due ?? firstInv.total_amount ?? ''
+        }));
+      }
+    } else {
+      const firstBill = openVendorBills[0];
+      if (firstBill) {
+        setFormData(prev => ({
+          ...prev,
+          invoiceBill: '',
+          vendorbill: firstBill._id,
+          partnerName: firstBill.vendor?.name || firstBill.vendorName || 'Vendor',
+          amount: firstBill.amount_due ?? firstBill.total ?? ''
+        }));
+      }
+    }
+  }, [formData.type, invoices.length, vendorBills.length]);
+
+  const handleInvoiceChange = (invId) => {
+    const inv = invoices.find(i => i._id === invId);
+    setFormData(prev => ({
+      ...prev,
+      invoiceBill: invId,
+      partnerName: inv?.customerName || 'Customer',
+      amount: inv ? (inv.amount_due ?? inv.total_amount) : prev.amount
+    }));
+  };
+
+  const handleBillChange = (billId) => {
+    const bill = vendorBills.find(b => b._id === billId);
+    setFormData(prev => ({
+      ...prev,
+      vendorbill: billId,
+      partnerName: bill?.vendor?.name || bill?.vendorName || 'Vendor',
+      amount: bill ? (bill.amount_due ?? bill.total) : prev.amount
+    }));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.amount || Number(formData.amount) <= 0) return;
 
-    processPayment({
-      partnerName: formData.partnerName,
-      payment_method: formData.payment_method,
-      amount: Number(formData.amount),
-      type: formData.type,
-      note: formData.note || `Manual ${formData.type} payment`
-    });
-
-    setIsAddModalOpen(false);
+    try {
+      await processPayment({
+        invoiceBill: formData.type === 'RECEIVE' ? formData.invoiceBill : undefined,
+        vendorbill: formData.type === 'SEND' ? formData.vendorbill : undefined,
+        partnerName: formData.partnerName,
+        payment_method: formData.payment_method,
+        amount: Number(formData.amount),
+        type: formData.type,
+        note: formData.note || `Manual ${formData.type} payment`
+      });
+      setIsAddModalOpen(false);
+    } catch (err) {
+      // Error handled by app context toast
+    }
   };
 
   const columns = [
@@ -39,7 +99,9 @@ export const PaymentsPage = () => {
       cell: (row) => (
         <div className="flex items-center gap-2">
           <CreditCard className="w-4 h-4 text-slate-400" />
-          <span className="font-semibold text-slate-800">{row._id}</span>
+          <span className="font-semibold text-slate-800">
+            {row._id ? (row._id.startsWith('pay_') ? row._id.slice(4, 12).toUpperCase() : row._id.slice(-8).toUpperCase()) : 'PAY'}
+          </span>
         </div>
       )
     },
@@ -55,10 +117,36 @@ export const PaymentsPage = () => {
         </div>
       )
     },
-    { header: 'Partner', accessor: 'partnerName' },
-    { header: 'Payment Method', cell: (row) => <Badge status={row.payment_method} /> },
+    {
+      header: 'Linked Document',
+      cell: (row) => (
+        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700">
+          <FileText className="w-3.5 h-3.5 text-sky-600" />
+          <span>
+            {row.invoiceBill?.inv_number ||
+             row.vendorbill?.bill_number ||
+             (typeof row.invoiceBill === 'string' ? row.invoiceBill : null) ||
+             (typeof row.vendorbill === 'string' ? row.vendorbill : null) ||
+             (row.type === 'RECEIVE' ? 'Customer Invoice' : 'Vendor Bill')}
+          </span>
+        </div>
+      )
+    },
+    {
+      header: 'Partner',
+      cell: (row) => (
+        <span>
+          {row.invoiceBill?.customerName ||
+           row.vendorbill?.vendor?.name ||
+           row.vendorbill?.vendorName ||
+           row.partnerName ||
+           'Partner'}
+        </span>
+      )
+    },
+    { header: 'Method', cell: (row) => <Badge status={row.payment_method} /> },
     { header: 'Amount', cell: (row) => <span className="font-bold text-slate-900">{formatCurrency(row.amount)}</span> },
-    { header: 'Date', cell: (row) => formatDate(row.date) },
+    { header: 'Date', cell: (row) => formatDate(row.date || row.createdAt) },
     { header: 'Status', cell: (row) => <Badge status={row.status} /> }
   ];
 
@@ -67,15 +155,17 @@ export const PaymentsPage = () => {
       <div className="flex items-center justify-between bg-white p-6 rounded-2xl border border-slate-200">
         <div>
           <h2 className="text-xl font-bold text-slate-800 tracking-tight">Payments Directory</h2>
-          <p className="text-xs text-slate-500 mt-1">Cash and Bank Incoming / Outgoing Receipts</p>
+          <p className="text-xs text-slate-500 mt-1">Cash and Bank Incoming / Outgoing Receipts with Auto Journal Sync</p>
         </div>
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800"
-        >
-          <Plus className="w-4 h-4" />
-          New Payment
-        </button>
+        {!isContact && (
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800"
+          >
+            <Plus className="w-4 h-4" />
+            New Payment
+          </button>
+        )}
       </div>
 
       <Table columns={columns} data={payments} />
@@ -90,8 +180,8 @@ export const PaymentsPage = () => {
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                 className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
               >
-                <option value="RECEIVE">RECEIVE (Inflow)</option>
-                <option value="SEND">SEND (Outflow)</option>
+                <option value="RECEIVE">RECEIVE (From Customer Invoice)</option>
+                <option value="SEND">SEND (For Vendor Bill)</option>
               </select>
             </div>
             <div>
@@ -107,17 +197,46 @@ export const PaymentsPage = () => {
             </div>
           </div>
 
+          {formData.type === 'RECEIVE' ? (
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Select Customer Invoice</label>
+              <select
+                value={formData.invoiceBill}
+                onChange={(e) => handleInvoiceChange(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none font-medium"
+              >
+                {openInvoices.map(inv => (
+                  <option key={inv._id} value={inv._id}>
+                    {inv.inv_number} — {inv.customerName || 'Customer'} (Due: Rs. {Number(inv.amount_due ?? inv.total_amount).toLocaleString()})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Select Vendor Bill</label>
+              <select
+                value={formData.vendorbill}
+                onChange={(e) => handleBillChange(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none font-medium"
+              >
+                {openVendorBills.map(b => (
+                  <option key={b._id} value={b._id}>
+                    {b.bill_number} — {b.vendor?.name || b.vendorName || 'Vendor'} (Due: Rs. {Number(b.amount_due ?? b.total).toLocaleString()})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
-            <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Partner / Contact</label>
-            <select
+            <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Partner / Beneficiary</label>
+            <input
+              type="text"
+              readOnly
               value={formData.partnerName}
-              onChange={(e) => setFormData({ ...formData, partnerName: e.target.value })}
-              className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
-            >
-              {contacts.map(c => (
-                <option key={c._id} value={c.name}>{c.name} ({c.userType})</option>
-              ))}
-            </select>
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-700 font-semibold"
+            />
           </div>
 
           <div>
@@ -139,7 +258,7 @@ export const PaymentsPage = () => {
               type="text"
               value={formData.note}
               onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-              placeholder="Direct cash payment for vendor settlement"
+              placeholder="Payment settlement remark"
               className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
             />
           </div>
@@ -156,7 +275,7 @@ export const PaymentsPage = () => {
               type="submit"
               className="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800"
             >
-              Record Payment
+              Confirm & Post Payment
             </button>
           </div>
         </form>

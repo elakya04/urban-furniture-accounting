@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const vendorBillSchema = new mongoose.Schema({
-  bill_number: { type: Number, required: true, unique: true },
+  bill_number: { type: mongoose.Schema.Types.Mixed, required: true, unique: true },
   sales: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "PurchaseOrder",

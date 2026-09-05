@@ -9,15 +9,18 @@ import {
   createInvoiceFromSO
 } from "../controllers/salesOrderController.js";
 import { protect } from "../middleware/auth.js";
+import { authorize } from "../middleware/rbac.js";
 
 const router = express.Router();
 
-router.get("/", protect, getSalesOrders);
-router.post("/", protect, createSalesOrder);
-router.get("/:id", protect, getSalesOrderById);
-router.patch("/:id", protect, updateSalesOrder);
-router.post("/:id/confirm", protect, confirmSalesOrder);
-router.post("/:id/cancel", protect, cancelSalesOrder);
-router.post("/:id/invoice", protect, createInvoiceFromSO);
+router.use(protect, authorize("ADMIN", "ACCOUNTANT"));
+
+router.get("/", getSalesOrders);
+router.post("/", createSalesOrder);
+router.get("/:id", getSalesOrderById);
+router.patch("/:id", updateSalesOrder);
+router.post("/:id/confirm", confirmSalesOrder);
+router.post("/:id/cancel", cancelSalesOrder);
+router.post("/:id/invoice", createInvoiceFromSO);
 
 export default router;

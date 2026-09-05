@@ -11,6 +11,7 @@ import {
   getMyVendorBillById
 } from "../controllers/vendorBillController.js";
 import { protect } from "../middleware/auth.js";
+import { authorize } from "../middleware/rbac.js";
 
 const router = express.Router();
 
@@ -30,10 +31,11 @@ router.get(
 );
 
 
-// Get all vendor bills
+// Get all vendor bills (Admin & Accountant only)
 router.get(
   "/",
   protect,
+  authorize("ADMIN", "ACCOUNTANT"),
   getVendorBills
 );
 
@@ -46,18 +48,20 @@ router.get(
 );
 
 
-// Confirm vendor bill
+// Confirm vendor bill (Admin & Accountant only)
 router.post(
   "/:id/confirm",
   protect,
+  authorize("ADMIN", "ACCOUNTANT"),
   confirmVendorBill
 );
 
 
-// Cancel vendor bill
+// Cancel vendor bill (Admin & Accountant only)
 router.post(
   "/:id/cancel",
   protect,
+  authorize("ADMIN", "ACCOUNTANT"),
   cancelVendorBill
 );
 

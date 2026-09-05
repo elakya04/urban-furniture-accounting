@@ -140,13 +140,14 @@ export const api = {
   getJournalEntries: () => fetchJSON('/journal-entries'),
   getJournalEntryById: (id) => fetchJSON(`/journal-entries/${id}`),
   createJournalEntry: (data) => fetchJSON('/journal-entries', { method: 'POST', body: JSON.stringify(data) }),
+  postJournalEntry: (id) => fetchJSON(`/journal-entries/${id}/post`, { method: 'POST' }),
   reverseJournalEntry: (id) => fetchJSON(`/journal-entries/${id}/reverse`, { method: 'POST' }),
 
   // General Ledger
-  getLedger: () => fetchJSON('/ledger'),
+  getLedger: (accountId) => fetchJSON(accountId ? `/ledger/${accountId}` : '/ledger'),
 
   // Budgets
-  getBudgets: () => fetchJSON('/budgets'),
+  getBudgets: (params = '') => fetchJSON(`/budgets${params ? `?${params}` : ''}`),
   getBudgetById: (id) => fetchJSON(`/budgets/${id}`),
   createBudget: (data) => fetchJSON('/budgets', { method: 'POST', body: JSON.stringify(data) }),
   updateBudget: (id, data) => fetchJSON(`/budgets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
@@ -161,13 +162,40 @@ export const api = {
   createStockAdjustment: (data) => fetchJSON('/stock/adjustments', { method: 'POST', body: JSON.stringify(data) }),
 
   // Financial Reports
-  getProfitLossReport: () => fetchJSON('/reports/profit-loss'),
-  getBalanceSheetReport: () => fetchJSON('/reports/balance-sheet'),
-  getBudgetSummaryReport: () => fetchJSON('/reports/budget'),
-  getStockReport: () => fetchJSON('/reports/stock'),
+  getProfitLossReport: (params) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return fetchJSON(`/reports/profit-loss${qs}`);
+  },
+  getProfitLoss: (params) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return fetchJSON(`/reports/profit-loss${qs}`);
+  },
+  getBalanceSheetReport: (params) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return fetchJSON(`/reports/balance-sheet${qs}`);
+  },
+  getBalanceSheet: (params) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return fetchJSON(`/reports/balance-sheet${qs}`);
+  },
+  getBudgetSummaryReport: (params) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return fetchJSON(`/reports/budget${qs}`);
+  },
+  getBudgetReport: (params) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return fetchJSON(`/reports/budget${qs}`);
+  },
+  getStockReport: (params) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return fetchJSON(`/reports/stock${qs}`);
+  },
 
   // Dashboard Summary
-  getDashboardSummary: () => fetchJSON('/dashboard/summary'),
+  getDashboardSummary: (params) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return fetchJSON(`/dashboard/summary${qs}`);
+  },
 
   // File Upload
   uploadImage: (formData) => fetchJSON('/uploads/image', { method: 'POST', body: formData }),

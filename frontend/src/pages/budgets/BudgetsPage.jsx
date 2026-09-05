@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { ViewToggle } from '../../components/common/ViewToggle';
 import { Table } from '../../components/common/Table';
 import { Card } from '../../components/common/Card';
@@ -11,6 +12,7 @@ import { Plus, PieChart, CheckCircle, RotateCcw, Link as LinkIcon, ExternalLink,
 
 export const BudgetsPage = () => {
   const { budgets, analyticAccounts, invoices, vendorBills, users, addBudget, confirmBudget, reviseBudget } = useApp();
+  const { isContact, isAdmin, isAccountant } = useAuth();
   const [view, setView] = useState('list'); // list or kanban
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isReviseModalOpen, setIsReviseModalOpen] = useState(false);
@@ -23,21 +25,42 @@ export const BudgetsPage = () => {
 
   const [formData, setFormData] = useState({
     name: 'January 2026',
-    analytics_account: analyticAccounts[0]?._id || '',
+    analytics_account: '',
     start_date: '2026-01-01',
     end_date: '2026-01-31',
     type: 'EXPENSE',
     committed_amount: 200000,
-    responsiblePerson: users[0]?._id || ''
+    responsiblePerson: ''
   });
 
+  // Dynamically set defaults once master data loads
+  useEffect(() => {
+    if (!formData.analytics_account && analyticAccounts.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        analytics_account: analyticAccounts[0]._id
+      }));
+    }
+  }, [analyticAccounts, formData.analytics_account]);
+
+  useEffect(() => {
+    if (!formData.responsiblePerson && users.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        responsiblePerson: users[0]._id
+      }));
+    }
+  }, [users, formData.responsiblePerson]);
+
   const getAnalyticName = (id) => {
-    if (typeof id === 'object') return id.name;
+    if (!id) return '-';
+    if (typeof id === 'object') return id.name || '-';
     return analyticAccounts.find(a => a._id === id)?.name || id || '-';
   };
 
   const getUserName = (id) => {
-    if (typeof id === 'object') return id.name;
+    if (!id) return 'System Admin';
+    if (typeof id === 'object') return id.name || id.role || 'Admin';
     return users.find(u => u._id === id)?.name || 'System Admin';
   };
 
@@ -182,7 +205,7 @@ export const BudgetsPage = () => {
       header: 'Actions',
       cell: (row) => (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          {row.status === 'DRAFT' && (
+          {row.status === 'DRAFT' && !isContact && (
             <button
               onClick={() => confirmBudget(row._id)}
               className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors shadow-xs"
@@ -191,7 +214,7 @@ export const BudgetsPage = () => {
             </button>
           )}
 
-          {row.status === 'CONFIRMED' && (
+          {row.status === 'CONFIRMED' && !isContact && (
             <button
               onClick={() => { setSelectedBudgetForRevise(row); setNewLimitInput(row.committed_amount + 50000); setIsReviseModalOpen(true); }}
               className="flex items-center gap-1 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium transition-colors"
@@ -223,13 +246,15 @@ export const BudgetsPage = () => {
             </button>
           )}
           <ViewToggle currentView={view} onViewChange={setView} />
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition-colors shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            Create Budget
-          </button>
+          {!isContact && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition-colors shadow-xs"
+            >
+              <Plus className="w-4 h-4" />
+              Create Budget
+            </button>
+          )}
         </div>
       </div>
 
@@ -313,7 +338,7 @@ export const BudgetsPage = () => {
               {/* Stage Progress Bar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div className="flex items-center gap-2">
-                  {selectedBudgetForForm.status === 'DRAFT' && (
+                  {selectedBudgetForForm.status === 'DRAFT' && !isContact && (
                     <button
                       onClick={() => { confirmBudget(selectedBudgetForForm._id); setSelectedBudgetForForm(null); }}
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-xs"
@@ -321,7 +346,7 @@ export const BudgetsPage = () => {
                       Confirm Budget
                     </button>
                   )}
-                  {selectedBudgetForForm.status === 'CONFIRMED' && (
+                  {selectedBudgetForForm.status === 'CONFIRMED' && !isContact && (
                     <button
                       onClick={() => { setSelectedBudgetForRevise(selectedBudgetForForm); setNewLimitInput(selectedBudgetForForm.committed_amount + 50000); setIsReviseModalOpen(true); }}
                       className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs"

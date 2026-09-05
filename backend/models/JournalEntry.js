@@ -39,7 +39,7 @@ const journalEntrySchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-journalEntrySchema.pre("validate", function() {
+journalEntrySchema.pre("validate", function () {
   if (this.journalItems && this.journalItems.length > 0) {
     const debit = this.journalItems.reduce((sum, item) => sum + (item.debit || 0), 0);
     const credit = this.journalItems.reduce((sum, item) => sum + (item.credit || 0), 0);

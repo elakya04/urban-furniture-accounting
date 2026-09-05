@@ -11,19 +11,24 @@ import {
   getBudgetReport
 } from "../controllers/budgetController.js";
 import { protect } from "../middleware/auth.js";
+import { authorize } from "../middleware/rbac.js";
 
 const router = express.Router();
 
-router.post("/", protect, createBudget);
-router.get("/", protect, getBudgets);
+// Budgets are managed by Admin and Accountant actors
+router.use(protect, authorize("ADMIN", "ACCOUNTANT"));
 
-router.get("/:id", protect, getBudgetById);
-router.patch("/:id", protect, updateBudget);
+router.post("/", createBudget);
+router.get("/", getBudgets);
 
-router.post("/:id/confirm", protect, confirmBudget);
-router.post("/:id/revise", protect, reviseBudget);
-router.post("/:id/cancel", protect, cancelBudget);
+router.get("/:id", getBudgetById);
+router.patch("/:id", updateBudget);
 
-router.get("/:id/report", protect, getBudgetReport);
+router.post("/:id/confirm", confirmBudget);
+router.post("/:id/revise", reviseBudget);
+router.patch("/:id/revise", reviseBudget);
+router.post("/:id/cancel", cancelBudget);
+
+router.get("/:id/report", getBudgetReport);
 
 export default router;

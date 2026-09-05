@@ -10,14 +10,16 @@ import {
   createVendorBillFromPurchaseOrder
 } from "../controllers/purchaseOrderController.js";
 import { protect } from "../middleware/auth.js";
+import { authorize } from "../middleware/rbac.js";
 
 const router = express.Router();
 
+// Purchase Orders are managed by Admin and Accountant actors
+router.use(protect, authorize("ADMIN", "ACCOUNTANT"));
 
 // Create Purchase Order
 router.post(
   "/",
-  protect,
   createPurchaseOrder
 );
 

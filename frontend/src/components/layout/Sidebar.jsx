@@ -87,7 +87,8 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
       title: 'Financial Reports',
       items: [
         { id: 'profit-loss', label: 'Profit & Loss', icon: BarChart3, roles: ['ADMIN', 'ACCOUNTANT'] },
-        { id: 'balance-sheet', label: 'Balance Sheet', icon: Building2, roles: ['ADMIN', 'ACCOUNTANT'] }
+        { id: 'balance-sheet', label: 'Balance Sheet', icon: Building2, roles: ['ADMIN', 'ACCOUNTANT'] },
+        { id: 'budget-report', label: 'Budget Report', icon: PieChart, roles: ['ADMIN', 'ACCOUNTANT'] }
       ]
     },
     {

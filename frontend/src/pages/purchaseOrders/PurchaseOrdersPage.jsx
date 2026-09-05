@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { Table } from '../../components/common/Table';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
@@ -9,21 +10,36 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 
 export const PurchaseOrdersPage = () => {
   const { purchaseOrders, contacts, products, coa, analyticAccounts, addPurchaseOrder, confirmPurchaseOrder } = useApp();
+  const { isContact, isAdmin, isAccountant } = useAuth();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState(null);
 
-  const [vendor, setVendor] = useState(contacts.find(c => c.userType === 'VENDOR')?._id || contacts[0]?._id || '');
-  const [items, setItems] = useState([
-    {
-      product: products[0]?._id || '',
-      productName: products[0]?.productName || '',
-      account: coa.find(c => c.accountName.includes('Purchase'))?._id || coa[0]?._id,
-      budgetAnalytics: analyticAccounts[0]?._id || '',
-      quantity: 2,
-      unitPrice: products[0]?.cost || 0,
-      total: (products[0]?.cost || 0) * 2
+  const [vendor, setVendor] = useState('');
+  const [items, setItems] = useState([]);
+
+  // Dynamically synchronize defaults once master data loads
+  useEffect(() => {
+    if (!vendor && contacts.length > 0) {
+      const v = contacts.find(c => c.userType === 'VENDOR' || c.contactRole === 'VENDOR' || c.contactRole === 'BOTH') || contacts[0];
+      if (v) setVendor(v._id);
     }
-  ]);
+  }, [contacts, vendor]);
+
+  useEffect(() => {
+    if (products.length > 0 && items.length === 0) {
+      setItems([
+        {
+          product: products[0]?._id || '',
+          productName: products[0]?.productName || '',
+          account: coa.find(c => c.accountName?.toLowerCase().includes('purchase'))?._id || coa[0]?._id || '',
+          budgetAnalytics: analyticAccounts[0]?._id || '',
+          quantity: 2,
+          unitPrice: products[0]?.cost || 0,
+          total: (products[0]?.cost || 0) * 2
+        }
+      ]);
+    }
+  }, [products, coa, analyticAccounts, items.length]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -46,19 +62,24 @@ export const PurchaseOrdersPage = () => {
       cell: (row) => (
         <div className="flex items-center gap-2">
           <Truck className="w-4 h-4 text-slate-400" />
-          <span className="font-semibold text-slate-800">{row.po_number}</span>
+          <span className="font-semibold text-slate-800">
+            {row.po_number || (row.purchase_id ? `PO #${row.purchase_id}` : `PO-${row._id?.slice(-5)}`)}
+          </span>
         </div>
       )
     },
-    { header: 'Vendor Name', accessor: 'vendorName' },
+    {
+      header: 'Vendor Name',
+      cell: (row) => <span>{row.vendor?.name || row.vendorName || 'Vendor'}</span>
+    },
     { header: 'PO Date', cell: (row) => formatDate(row.date) },
-    { header: 'Total Amount', cell: (row) => formatCurrency(row.total_amount) },
+    { header: 'Total Amount', cell: (row) => formatCurrency(row.total_amount ?? row.total ?? 0) },
     { header: 'Status', cell: (row) => <Badge status={row.status} /> },
     {
       header: 'Actions',
       cell: (row) => (
         <div onClick={(e) => e.stopPropagation()}>
-          {row.status === 'DRAFT' && (
+          {row.status === 'DRAFT' && !isContact && (
             <button
               onClick={() => confirmPurchaseOrder(row._id)}
               className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors shadow-xs"
@@ -83,13 +104,15 @@ export const PurchaseOrdersPage = () => {
           <h2 className="text-xl font-bold text-slate-800 tracking-tight">Purchase Orders (PO)</h2>
           <p className="text-xs text-slate-500 mt-1">Manage Vendor Purchase Orders & Automatic Bill Generation</p>
         </div>
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800"
-        >
-          <Plus className="w-4 h-4" />
-          Create Purchase Order
-        </button>
+        {!isContact && (
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800"
+          >
+            <Plus className="w-4 h-4" />
+            Create Purchase Order
+          </button>
+        )}
       </div>
 
       <Table columns={columns} data={purchaseOrders} onRowClick={(row) => setSelectedPO(row)} />
@@ -145,13 +168,18 @@ export const PurchaseOrdersPage = () => {
       </Modal>
 
       {/* Full Odoo Style Form View Modal for Purchase Order */}
-      <Modal isOpen={Boolean(selectedPO)} onClose={() => setSelectedPO(null)} title={`Form View: Purchase Order ${selectedPO?.po_number || ''}`} maxWidth="max-w-4xl">
+      <Modal
+        isOpen={Boolean(selectedPO)}
+        onClose={() => setSelectedPO(null)}
+        title={`Form View: Purchase Order ${selectedPO?.po_number || (selectedPO?.purchase_id ? `PO #${selectedPO.purchase_id}` : `PO-${selectedPO?._id?.slice(-5) || ''}`)}`}
+        maxWidth="max-w-4xl"
+      >
         {selectedPO && (
           <div className="space-y-6">
             {/* Top Stage Bar & Actions */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div className="flex items-center gap-2">
-                {selectedPO.status === 'DRAFT' && (
+                {selectedPO.status === 'DRAFT' && !isContact && (
                   <button
                     onClick={() => { confirmPurchaseOrder(selectedPO._id); setSelectedPO(null); }}
                     className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-xs"
@@ -183,11 +211,15 @@ export const PurchaseOrdersPage = () => {
             <div className="grid grid-cols-2 gap-4 text-xs bg-white p-4 rounded-xl border border-slate-200">
               <div>
                 <span className="text-slate-400 uppercase font-semibold">PO Number:</span>
-                <div className="text-lg font-bold text-slate-900">{selectedPO.po_number}</div>
+                <div className="text-lg font-bold text-slate-900">
+                  {selectedPO.po_number || (selectedPO.purchase_id ? `PO #${selectedPO.purchase_id}` : `PO-${selectedPO._id?.slice(-5)}`)}
+                </div>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">Vendor Name:</span>
-                <div className="text-base font-bold text-slate-800">{selectedPO.vendorName}</div>
+                <div className="text-base font-bold text-slate-800">
+                  {selectedPO.vendor?.name || selectedPO.vendorName || 'Vendor'}
+                </div>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">PO Date:</span>
@@ -195,7 +227,9 @@ export const PurchaseOrdersPage = () => {
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">Total Amount:</span>
-                <div className="text-lg font-extrabold text-emerald-700">{formatCurrency(selectedPO.total_amount)}</div>
+                <div className="text-lg font-extrabold text-emerald-700">
+                  {formatCurrency(selectedPO.total_amount ?? selectedPO.total ?? 0)}
+                </div>
               </div>
             </div>
 
@@ -219,12 +253,14 @@ export const PurchaseOrdersPage = () => {
                     {selectedPO.items?.map((item, idx) => (
                       <tr key={idx}>
                         <td className="p-2.5 text-slate-400">{idx + 1}.</td>
-                        <td className="p-2.5 font-semibold text-slate-800">{item.productName || item.product}</td>
+                        <td className="p-2.5 font-semibold text-slate-800">
+                          {item.product?.productName || item.productName || item.product}
+                        </td>
                         <td className="p-2.5 text-slate-600">{item.accountName || 'Purchase Expense A/c'}</td>
-                        <td className="p-2.5 text-slate-600">{item.budgetAnalyticsName || item.budgetAnalytics || 'Furniture'}</td>
+                        <td className="p-2.5 text-slate-600">{item.budgetAnalyticsName || item.budgetAnalytics || 'General'}</td>
                         <td className="p-2.5 text-center font-medium">{item.quantity}</td>
                         <td className="p-2.5 text-right">{formatCurrency(item.unitPrice)}</td>
-                        <td className="p-2.5 text-right font-bold text-slate-900">{formatCurrency(item.total)}</td>
+                        <td className="p-2.5 text-right font-bold text-slate-900">{formatCurrency(item.total ?? (item.quantity * item.unitPrice))}</td>
                       </tr>
                     ))}
                   </tbody>

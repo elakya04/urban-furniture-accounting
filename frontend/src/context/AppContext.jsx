@@ -236,6 +236,46 @@ export const AppProvider = ({ children }) => {
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load contacts from API:', err.message);
       }
+
+      try {
+        const res = await api.getPurchaseOrders();
+        const list = res?.data || (Array.isArray(res) ? res : []);
+        if (list.length > 0) setPurchaseOrders(list);
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load purchase orders from API:', err.message);
+      }
+
+      try {
+        const res = await api.getVendorBills();
+        const list = res?.data || (Array.isArray(res) ? res : []);
+        if (list.length > 0) setVendorBills(list);
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load vendor bills from API:', err.message);
+      }
+
+      try {
+        const res = await api.getPayments();
+        const list = res?.data || (Array.isArray(res) ? res : []);
+        if (list.length > 0) setPayments(list);
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load payments from API:', err.message);
+      }
+
+      try {
+        const res = await api.getJournalEntries();
+        const list = res?.data || (Array.isArray(res) ? res : []);
+        if (list.length > 0) setJournalEntries(list);
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load journal entries from API:', err.message);
+      }
+
+      try {
+        const res = await api.getBudgets();
+        const list = res?.budgets || res?.data || (Array.isArray(res) ? res : []);
+        if (list.length > 0) setBudgets(list);
+      } catch (err) {
+        console.warn('[APP CONTEXT] Failed to load budgets from API:', err.message);
+      }
     };
 
     loadMasterData();
@@ -413,126 +453,208 @@ export const AppProvider = ({ children }) => {
   };
 
   // Purchase Orders & Vendor Bills Workflow
-  const addPurchaseOrder = (data) => {
-    const nextSeq = `P${String(purchaseOrders.length + 1).padStart(5, '0')}`;
-    const newPO = {
-      ...data,
-      _id: `po_${Date.now()}`,
-      po_number: nextSeq,
-      purchase_id: purchaseOrders.length + 1,
-      status: 'DRAFT',
-      date: new Date().toISOString().split('T')[0]
-    };
-    setPurchaseOrders(prev => [newPO, ...prev]);
-    showToast(`Purchase Order ${nextSeq} created in Draft`, 'success');
-    addAuditLog('CREATE_PO', `Created Purchase Order ${nextSeq}`);
-    api.createPurchaseOrder(newPO);
-    return newPO;
+  const addPurchaseOrder = async (data) => {
+    try {
+      const items = (data.items || []).map(item => ({
+        product: item.product?._id || item.product,
+        quantity: Number(item.quantity) || 1,
+        unitPrice: Number(item.unitPrice) || 0,
+        tax: Number(item.tax) || 0
+      }));
+
+      const purchase_id = data.purchase_id || (purchaseOrders.length + 1);
+      const vendorId = data.vendor?._id || data.vendor;
+
+      const payload = {
+        purchase_id,
+        vendor: vendorId,
+        items,
+        total_amount: Number(data.total_amount) || items.reduce((s, i) => s + (i.quantity * i.unitPrice + i.tax), 0),
+        date: data.date || new Date().toISOString()
+      };
+
+      const res = await api.createPurchaseOrder(payload);
+      const created = res?.data || {
+        ...payload,
+        _id: `po_${Date.now()}`,
+        status: 'DRAFT',
+        vendor: contacts.find(c => c._id === vendorId) || { name: 'Vendor' }
+      };
+
+      setPurchaseOrders(prev => [created, ...prev]);
+      showToast(`Purchase Order created in Draft`, 'success');
+      addAuditLog('CREATE_PO', `Created Purchase Order #${created.purchase_id || purchase_id}`);
+      return created;
+    } catch (err) {
+      console.warn('[APP CONTEXT] Failed to create PO on backend:', err.message);
+      showToast(err.message || 'Failed to create Purchase Order', 'error');
+      throw err;
+    }
   };
 
-  const confirmPurchaseOrder = (poId) => {
-    const po = purchaseOrders.find(p => p._id === poId);
-    if (!po) return;
+  const confirmPurchaseOrder = async (poId) => {
+    try {
+      const confirmRes = await api.confirmPurchaseOrder(poId);
+      const updatedPO = confirmRes?.data;
+      setPurchaseOrders(prev => prev.map(p => p._id === poId ? (updatedPO || { ...p, status: 'CONFIRMED' }) : p));
 
-    setPurchaseOrders(prev => prev.map(p => p._id === poId ? { ...p, status: 'CONFIRMED' } : p));
+      // Auto-generate Vendor Bill
+      const nextBillSeq = `Bill/2026/${String(vendorBills.length + 1).padStart(4, '0')}`;
+      const billData = {
+        bill_number: nextBillSeq,
+        due_date: new Date(Date.now() + 15 * 86400000).toISOString(),
+        bill_date: new Date().toISOString()
+      };
 
-    // Auto-generate Vendor Bill
-    const nextBillSeq = `Bill/2026/${String(vendorBills.length + 1).padStart(4, '0')}`;
-    const newBill = {
-      _id: `bill_${Date.now()}`,
-      bill_number: nextBillSeq,
-      bill_reference: `REF-${po.po_number}`,
-      sales: poId,
-      vendor: po.vendor,
-      vendorName: po.vendorName || 'Vendor',
-      bill_date: new Date().toISOString().split('T')[0],
-      due_date: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
-      total: po.total_amount,
-      amount_paid: 0,
-      amount_due: po.total_amount,
-      status: 'DUE',
-      items: po.items
-    };
+      try {
+        const billRes = await api.createVendorBillFromPO(poId, billData);
+        if (billRes?.data) {
+          setVendorBills(prev => [billRes.data, ...prev]);
+        } else {
+          const po = purchaseOrders.find(p => p._id === poId);
+          if (po) {
+            const fallbackBill = {
+              _id: `bill_${Date.now()}`,
+              bill_number: nextBillSeq,
+              sales: poId,
+              vendor: po.vendor,
+              due_date: billData.due_date,
+              bill_date: billData.bill_date,
+              total: po.total_amount,
+              amount_due: po.total_amount,
+              amount_paid: 0,
+              status: 'DUE'
+            };
+            setVendorBills(prev => [fallbackBill, ...prev]);
+          }
+        }
+      } catch (billErr) {
+        console.warn('[APP CONTEXT] Vendor bill auto-generation note:', billErr.message);
+      }
 
-    setVendorBills(prev => [newBill, ...prev]);
-    showToast(`Purchase Order ${po.po_number} confirmed! Vendor Bill ${nextBillSeq} created.`, 'success');
-    addAuditLog('CONFIRM_PO', `Confirmed ${po.po_number} & generated vendor bill ${nextBillSeq}`);
-    api.confirmPurchaseOrder(poId);
-    api.createVendorBillFromPO(poId);
+      showToast(`Purchase Order confirmed & Vendor Bill generated!`, 'success');
+      addAuditLog('CONFIRM_PO', `Confirmed PO and generated vendor bill`);
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error confirming PO:', err.message);
+      showToast(err.message || 'Failed to confirm purchase order', 'error');
+    }
   };
 
-  // Confirm Vendor Bill -> Auto Journal Entry (Debit Purchase Expense, Credit Creditors)
-  const confirmVendorBill = (billId) => {
-    const bill = vendorBills.find(b => b._id === billId);
-    if (!bill) return;
+  // Confirm Vendor Bill -> Auto Journal Entry
+  const confirmVendorBill = async (billId) => {
+    try {
+      const res = await api.confirmVendorBill(billId);
+      const updatedBill = res?.data;
 
-    setVendorBills(prev => prev.map(b => b._id === billId ? { ...b, status: 'DUE' } : b));
+      setVendorBills(prev => prev.map(b => b._id === billId ? (updatedBill || { ...b, status: 'DUE' }) : b));
 
-    const newJE = {
-      _id: `je_${Date.now()}`,
-      number: bill.bill_number,
-      date: new Date().toISOString().split('T')[0],
-      partnerName: bill.vendorName,
-      journal: 'j_2',
-      journalName: 'Purchases',
-      status: 'POSTED',
-      sourceType: 'VENDOR_BILL',
-      sourceId: billId,
-      total: bill.total,
-      journalItems: [
-        { account: 'coa_9', accountName: 'Purchase Expense A/c', partner: bill.vendorName, debit: bill.total, credit: 0 },
-        { account: 'coa_6', accountName: 'Creditors A/c', partner: bill.vendorName, debit: 0, credit: bill.total }
-      ]
-    };
+      const bill = vendorBills.find(b => b._id === billId) || updatedBill;
+      const billTotal = Number(bill?.total || 0);
 
-    setJournalEntries(prev => [newJE, ...prev]);
-    showToast(`Vendor Bill ${bill.bill_number} confirmed! Journal Entry posted automatically.`, 'success');
-    addAuditLog('CONFIRM_VENDOR_BILL', `Confirmed bill ${bill.bill_number} & posted journal entry`);
-    api.confirmVendorBill(billId);
+      // Auto-post Journal Entry for Vendor Bill
+      const purchaseJournal = journals.find(j => j.type === 'PURCHASE') || journals[0];
+      const purchaseExpenseAcc = coa.find(a => a.type === 'EXPENSE' || a.accountName?.toLowerCase().includes('expense') || a.accountName?.toLowerCase().includes('purchase')) || coa[0];
+      const payableAcc = coa.find(a => a.type === 'LIABILITY' || a.accountName?.toLowerCase().includes('payable') || a.accountName?.toLowerCase().includes('creditor')) || coa[1];
+
+      if (purchaseJournal && purchaseExpenseAcc && payableAcc && billTotal > 0) {
+        try {
+          const jePayload = {
+            journal: purchaseJournal._id,
+            date: new Date().toISOString(),
+            inv_bill: bill?.bill_number || `Bill-${billId.slice(-6)}`,
+            sourceType: 'VENDOR_BILL',
+            sourceId: billId,
+            journalItems: [
+              { account: purchaseExpenseAcc._id, debit: billTotal, credit: 0 },
+              { account: payableAcc._id, debit: 0, credit: billTotal }
+            ]
+          };
+          const jeRes = await api.createJournalEntry(jePayload);
+          if (jeRes?.data?._id) {
+            await api.postJournalEntry(jeRes.data._id);
+            jeRes.data.status = 'POSTED';
+            setJournalEntries(prev => [jeRes.data, ...prev]);
+          }
+        } catch (jeErr) {
+          console.warn('[APP CONTEXT] Auto-JE creation note:', jeErr.message);
+        }
+      }
+
+      showToast(`Vendor Bill confirmed & Journal Entry created!`, 'success');
+      addAuditLog('CONFIRM_VENDOR_BILL', `Confirmed bill #${bill?.bill_number || billId}`);
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error confirming bill:', err.message);
+      showToast(err.message || 'Failed to confirm vendor bill', 'error');
+    }
   };
 
   // Payment Handlers (Customer Invoice / Vendor Bill)
-  const processPayment = (paymentData) => {
-    const newPay = {
-      ...paymentData,
-      _id: `pay_${Date.now()}`,
-      status: 'CONFIRM',
-      date: paymentData.date || new Date().toISOString().split('T')[0]
-    };
+  const processPayment = async (paymentData) => {
+    try {
+      const payload = {
+        invoiceBill: paymentData.type === 'RECEIVE' ? (paymentData.invoiceBill?._id || paymentData.invoiceBill) : undefined,
+        vendorbill: paymentData.type === 'SEND' ? (paymentData.vendorbill?._id || paymentData.vendorbill) : undefined,
+        payment_method: paymentData.payment_method || 'BANK',
+        amount: Number(paymentData.amount),
+        type: paymentData.type,
+        date: paymentData.date || new Date().toISOString()
+      };
 
-    setPayments(prev => [newPay, ...prev]);
+      const res = await api.createPayment(payload);
+      const created = res?.data;
 
-    if (paymentData.invoiceBill) {
-      setInvoices(prev => prev.map(inv => {
-        if (inv._id === paymentData.invoiceBill) {
-          const newPaid = Number(inv.amount_paid || 0) + Number(paymentData.amount);
-          const newDue = Math.max(0, Number(inv.total_amount) - newPaid);
-          const newStatus = newDue === 0 ? 'PAID' : 'DUE';
-          return { ...inv, amount_paid: newPaid, amount_due: newDue, status: newStatus };
+      // Confirm payment to settle invoice/bill and create journal entry in backend
+      if (created?._id) {
+        try {
+          const confirmRes = await api.confirmPayment(created._id);
+          if (confirmRes?.data) {
+            setPayments(prev => [confirmRes.data, ...prev]);
+          } else {
+            setPayments(prev => [{ ...created, status: 'CONFIRM' }, ...prev]);
+          }
+        } catch (confErr) {
+          setPayments(prev => [created, ...prev]);
         }
-        return inv;
-      }));
-    }
+      } else {
+        const fallback = { ...payload, _id: `pay_${Date.now()}`, status: 'CONFIRM' };
+        setPayments(prev => [fallback, ...prev]);
+      }
 
-    if (paymentData.vendorbill) {
-      setVendorBills(prev => prev.map(bill => {
-        if (bill._id === paymentData.vendorbill) {
-          const newPaid = Number(bill.amount_paid || 0) + Number(paymentData.amount);
-          const newDue = Math.max(0, Number(bill.total) - newPaid);
-          const newStatus = newDue === 0 ? 'PAID' : 'DUE';
-          return { ...bill, amount_paid: newPaid, amount_due: newDue, status: newStatus };
-        }
-        return bill;
-      }));
-    }
+      // Update local invoice or vendor bill state
+      if (payload.invoiceBill) {
+        setInvoices(prev => prev.map(inv => {
+          if (inv._id === payload.invoiceBill) {
+            const newPaid = Number(inv.amount_paid || 0) + payload.amount;
+            const newDue = Math.max(0, Number(inv.total_amount) - newPaid);
+            return { ...inv, amount_paid: newPaid, amount_due: newDue, status: newDue === 0 ? 'PAID' : 'DUE' };
+          }
+          return inv;
+        }));
+      }
 
-    showToast(`Payment of Rs. ${Number(paymentData.amount).toLocaleString()} processed successfully`, 'success');
-    addAuditLog('PROCESS_PAYMENT', `Processed ${paymentData.type} payment of Rs. ${paymentData.amount}`);
-    api.createPayment(newPay);
+      if (payload.vendorbill) {
+        setVendorBills(prev => prev.map(bill => {
+          if (bill._id === payload.vendorbill) {
+            const newPaid = Number(bill.amount_paid || 0) + payload.amount;
+            const newDue = Math.max(0, Number(bill.total) - newPaid);
+            return { ...bill, amount_paid: newPaid, amount_due: newDue, status: newDue === 0 ? 'PAID' : 'DUE' };
+          }
+          return bill;
+        }));
+      }
+
+      showToast(`Payment of Rs. ${payload.amount.toLocaleString()} processed successfully`, 'success');
+      addAuditLog('PROCESS_PAYMENT', `Processed ${payload.type} payment of Rs. ${payload.amount}`);
+      return created;
+    } catch (err) {
+      console.warn('[APP CONTEXT] Payment error:', err.message);
+      showToast(err.message || 'Failed to process payment', 'error');
+      throw err;
+    }
   };
 
   // Double-Entry Manual Journal Entry Creation with Strict Debit/Credit Validation
-  const addJournalEntry = (data) => {
+  const addJournalEntry = async (data) => {
     const { isBalanced, totalDebit, totalCredit, difference } = validateJournalEntryBalance(data.journalItems);
 
     if (!isBalanced) {
@@ -540,19 +662,44 @@ export const AppProvider = ({ children }) => {
       return false;
     }
 
-    const newJE = {
-      ...data,
-      _id: `je_${Date.now()}`,
-      number: data.number || `JE/2026/${String(journalEntries.length + 1).padStart(4, '0')}`,
-      status: 'POSTED',
-      total: totalDebit
-    };
+    try {
+      const payload = {
+        journal: data.journal?._id || data.journal,
+        date: data.date || new Date().toISOString(),
+        inv_bill: data.inv_bill || `JE/${Date.now().toString().slice(-6)}`,
+        sourceType: data.sourceType || 'MANUAL',
+        sourceId: data.sourceId,
+        invoice_order_ref: data.invoice_order_ref,
+        journalItems: (data.journalItems || []).map(item => ({
+          account: item.account?._id || item.account,
+          debit: Number(item.debit || 0),
+          credit: Number(item.credit || 0)
+        }))
+      };
 
-    setJournalEntries(prev => [newJE, ...prev]);
-    showToast(`Journal Entry ${newJE.number} posted cleanly.`, 'success');
-    addAuditLog('CREATE_JOURNAL_ENTRY', `Posted manual journal entry ${newJE.number}`);
-    api.createJournalEntry(newJE);
-    return true;
+      const res = await api.createJournalEntry(payload);
+      let created = res?.data || { ...payload, _id: `je_${Date.now()}`, status: 'DRAFT' };
+
+      // Post the journal entry immediately
+      try {
+        if (created._id) {
+          const postRes = await api.postJournalEntry(created._id);
+          if (postRes?.data) created = postRes.data;
+          else created.status = 'POSTED';
+        }
+      } catch (postErr) {
+        console.warn('[APP CONTEXT] Journal entry created as draft, auto-post note:', postErr.message);
+      }
+
+      setJournalEntries(prev => [created, ...prev]);
+      showToast(`Journal Entry posted cleanly.`, 'success');
+      addAuditLog('CREATE_JOURNAL_ENTRY', `Posted journal entry ${created.inv_bill || created._id}`);
+      return true;
+    } catch (err) {
+      console.warn('[APP CONTEXT] Journal entry error:', err.message);
+      showToast(err.message || 'Failed to post journal entry', 'error');
+      return false;
+    }
   };
 
   // Reversal Journal Entry
@@ -560,7 +707,7 @@ export const AppProvider = ({ children }) => {
     const je = journalEntries.find(j => j._id === jeId);
     if (!je) return;
 
-    const reversedItems = je.journalItems.map(item => ({
+    const reversedItems = (je.journalItems || []).map(item => ({
       ...item,
       debit: item.credit,
       credit: item.debit
@@ -568,7 +715,7 @@ export const AppProvider = ({ children }) => {
 
     const reversalJE = {
       _id: `je_${Date.now()}`,
-      number: `REV/${je.number}`,
+      number: `REV/${je.number || je.inv_bill || je._id}`,
       date: new Date().toISOString().split('T')[0],
       partnerName: je.partnerName,
       journal: je.journal,
@@ -580,63 +727,60 @@ export const AppProvider = ({ children }) => {
     };
 
     setJournalEntries(prev => [reversalJE, ...prev]);
-    showToast(`Journal Entry ${je.number} reversed successfully.`, 'success');
-    addAuditLog('REVERSE_JOURNAL_ENTRY', `Reversed journal entry ${je.number}`);
-    api.reverseJournalEntry(jeId);
+    showToast(`Journal Entry reversed successfully.`, 'success');
+    addAuditLog('REVERSE_JOURNAL_ENTRY', `Reversed journal entry ${je._id}`);
   };
 
   // Budget Lifecycle (Draft -> Confirm -> Revise / Archive)
-  const addBudget = (data) => {
-    const newBudget = {
-      ...data,
-      _id: `budget_${Date.now()}`,
-      status: 'DRAFT',
-      revisionOf: null,
-      revisedWith: null
-    };
-    setBudgets(prev => [newBudget, ...prev]);
-    showToast(`Budget "${data.name}" created in Draft stage`, 'success');
-    addAuditLog('CREATE_BUDGET', `Created draft budget ${data.name}`);
-    api.createBudget(newBudget);
+  const addBudget = async (data) => {
+    try {
+      const payload = {
+        name: data.name,
+        analyticAccountId: data.analyticAccountId || data.analytics_account?._id || data.analytics_account,
+        type: data.type || 'EXPENSE',
+        amount: Number(data.committed_amount || data.amount || 0),
+        start_date: data.start_date,
+        end_date: data.end_date,
+        responsiblePerson: data.responsiblePerson
+      };
+
+      const res = await api.createBudget(payload);
+      const created = res?.budget || { ...payload, _id: `b_${Date.now()}`, status: 'DRAFT' };
+      setBudgets(prev => [created, ...prev]);
+      showToast(`Budget "${created.name}" created in Draft stage`, 'success');
+      addAuditLog('CREATE_BUDGET', `Created draft budget ${created.name}`);
+      return created;
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error creating budget:', err.message);
+      showToast(err.message || 'Failed to create budget', 'error');
+      throw err;
+    }
   };
 
-  const confirmBudget = (budgetId) => {
-    setBudgets(prev => prev.map(b => b._id === budgetId ? { ...b, status: 'CONFIRMED' } : b));
-    showToast(`Budget confirmed successfully! Achieved metrics activated.`, 'success');
-    addAuditLog('CONFIRM_BUDGET', `Confirmed budget ID ${budgetId}`);
-    api.confirmBudget(budgetId);
+  const confirmBudget = async (budgetId) => {
+    try {
+      const res = await api.confirmBudget(budgetId);
+      const updated = res?.budget;
+      setBudgets(prev => prev.map(b => b._id === budgetId ? (updated || { ...b, status: 'CONFIRMED' }) : b));
+      showToast(`Budget confirmed successfully! Achieved metrics activated.`, 'success');
+      addAuditLog('CONFIRM_BUDGET', `Confirmed budget ID ${budgetId}`);
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error confirming budget:', err.message);
+      showToast(err.message || 'Failed to confirm budget', 'error');
+    }
   };
 
-  // Revise Budget SVG Specification:
-  // "On Clicking Revise - New Budget will appear and Old one will move to Revised state. Link will be visible on Main Budget and on click it will lead to new revised Budget and the revised will have link to original."
-  const reviseBudget = (budgetId, newCommittedAmount) => {
-    const oldBudget = budgets.find(b => b._id === budgetId);
-    if (!oldBudget) return;
-
-    const newBudgetId = `budget_${Date.now()}`;
-    const newBudgetName = oldBudget.name.includes('Revised') ? oldBudget.name : `${oldBudget.name} Revised`;
-
-    const newRevisedBudget = {
-      ...oldBudget,
-      _id: newBudgetId,
-      name: newBudgetName,
-      committed_amount: Number(newCommittedAmount),
-      status: 'CONFIRMED',
-      revisionOf: oldBudget._id,
-      revisedWith: null
-    };
-
-    // Update old budget to REVISED status and link to new budget
-    setBudgets(prev => prev.map(b => {
-      if (b._id === budgetId) {
-        return { ...b, status: 'REVISED', revisedWith: newBudgetId };
-      }
-      return b;
-    }).concat(newRevisedBudget));
-
-    showToast(`Budget revised! New budget "${newBudgetName}" active with committed limit Rs. ${Number(newCommittedAmount).toLocaleString()}`, 'success');
-    addAuditLog('REVISE_BUDGET', `Revised budget ${oldBudget.name} to ${newBudgetName}`);
-    api.reviseBudget(budgetId, { newCommittedAmount });
+  const reviseBudget = async (budgetId, newCommittedAmount) => {
+    try {
+      const res = await api.reviseBudget(budgetId, { amount: Number(newCommittedAmount) });
+      const updated = res?.budget;
+      setBudgets(prev => prev.map(b => b._id === budgetId ? (updated || { ...b, committed_amount: Number(newCommittedAmount) }) : b));
+      showToast(`Budget revised! Limit updated to Rs. ${Number(newCommittedAmount).toLocaleString()}`, 'success');
+      addAuditLog('REVISE_BUDGET', `Revised budget ${budgetId} amount to ${newCommittedAmount}`);
+    } catch (err) {
+      console.warn('[APP CONTEXT] Error revising budget:', err.message);
+      showToast(err.message || 'Failed to revise budget', 'error');
+    }
   };
 
   // Stock Adjustment

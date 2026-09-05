@@ -7,12 +7,16 @@ import {
   postJournalEntry
 } from "../controllers/journalEntryController.js";
 import { protect } from "../middleware/auth.js";
+import { authorize } from "../middleware/rbac.js";
 
 const router = express.Router();
 
-router.post("/", protect, createJournalEntry);
-router.get("/", protect, getJournalEntries);
-router.get("/:id", protect, getJournalEntryById);
-router.post("/:id/post", protect, postJournalEntry);
+// General Ledger and Journal Entries are strictly restricted to Admin and Accountant
+router.use(protect, authorize("ADMIN", "ACCOUNTANT"));
+
+router.post("/", createJournalEntry);
+router.get("/", getJournalEntries);
+router.get("/:id", getJournalEntryById);
+router.post("/:id/post", postJournalEntry);
 
 export default router;

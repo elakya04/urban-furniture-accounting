@@ -19,6 +19,7 @@ import { BudgetsPage } from '../../pages/budgets/BudgetsPage';
 import { StockPage } from '../../pages/stock/StockPage';
 import { ProfitLossPage } from '../../pages/reports/ProfitLossPage';
 import { BalanceSheetPage } from '../../pages/reports/BalanceSheetPage';
+import { BudgetReportPage } from '../../pages/reports/BudgetReportPage';
 import { CustomerPortal } from '../../pages/portal/CustomerPortal';
 import { VendorPortal } from '../../pages/portal/VendorPortal';
 import { AuditLogList } from '../../pages/auditLogs/AuditLogList';
@@ -62,6 +63,8 @@ export const AppLayout = () => {
         return <ProfitLossPage />;
       case 'balance-sheet':
         return <BalanceSheetPage />;
+      case 'budget-report':
+        return <BudgetReportPage />;
       case 'customer-portal':
         return <CustomerPortal />;
       case 'vendor-portal':

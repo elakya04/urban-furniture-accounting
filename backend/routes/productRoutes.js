@@ -10,19 +10,21 @@ import {
 } from "../controllers/productController.js";
 
 import { protect } from "../middleware/auth.js";
+import { authorize } from "../middleware/rbac.js";
 import uploadProfileImage from "../middleware/upload.js";
 
 const router = express.Router();
 
-// Create product + image
+// Create product + image (Admin and Accountant)
 router.post(
   "/",
   protect,
+  authorize("ADMIN", "ACCOUNTANT"),
   uploadProfileImage,
   createProduct
 );
 
-// Get all products
+// Get all products (Catalog viewable by all authenticated users)
 router.get(
   "/",
   protect,
@@ -36,24 +38,27 @@ router.get(
   getProductById
 );
 
-// Update product details
+// Update product details (Admin and Accountant)
 router.patch(
   "/:id",
   protect,
+  authorize("ADMIN", "ACCOUNTANT"),
   updateProduct
 );
 
-// Archive product
+// Archive product (Admin only per problem statement)
 router.post(
   "/:id/archive",
   protect,
+  authorize("ADMIN"),
   archiveProduct
 );
 
-// Upload / replace image
+// Upload / replace image (Admin and Accountant)
 router.post(
   "/:id/image",
   protect,
+  authorize("ADMIN", "ACCOUNTANT"),
   uploadProfileImage,
   uploadProductImage
 );

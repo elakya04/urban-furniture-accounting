@@ -7,13 +7,16 @@ import {
   updateAnalyticAccount
 } from "../controllers/analyticAccountController.js";
 import { protect } from "../middleware/auth.js";
+import { authorize } from "../middleware/rbac.js";
 
 const router = express.Router();
 
-router.post("/", protect, createAnalyticAccount);
-router.get("/", protect, getAnalyticAccounts);
+router.use(protect, authorize("ADMIN", "ACCOUNTANT"));
 
-router.get("/:id", protect, getAnalyticAccountById);
-router.patch("/:id", protect, updateAnalyticAccount);
+router.post("/", createAnalyticAccount);
+router.get("/", getAnalyticAccounts);
+
+router.get("/:id", getAnalyticAccountById);
+router.patch("/:id", updateAnalyticAccount);
 
 export default router;
