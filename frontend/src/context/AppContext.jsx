@@ -205,7 +205,7 @@ export const AppProvider = ({ children }) => {
       try {
         const res = await api.getProducts();
         const list = res?.data || (Array.isArray(res) ? res : []);
-        if (list.length > 0) setProducts(list);
+        setProducts(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load products from API:', err.message);
       }
@@ -214,7 +214,7 @@ export const AppProvider = ({ children }) => {
       try {
         const res = await api.getAccounts();
         const list = res?.data || (Array.isArray(res) ? res : []);
-        if (list.length > 0) setCOA(list);
+        setCOA(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load accounts from API:', err.message);
       }
@@ -223,7 +223,7 @@ export const AppProvider = ({ children }) => {
       try {
         const res = await api.getJournals();
         const list = res?.data || (Array.isArray(res) ? res : []);
-        if (list.length > 0) setJournals(list);
+        setJournals(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load journals from API:', err.message);
       }
@@ -232,7 +232,7 @@ export const AppProvider = ({ children }) => {
       try {
         const res = await api.getAnalyticAccounts();
         const list = res?.data || (Array.isArray(res) ? res : []);
-        if (list.length > 0) setAnalyticAccounts(list);
+        setAnalyticAccounts(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load analytic accounts from API:', err.message);
       }
@@ -241,7 +241,7 @@ export const AppProvider = ({ children }) => {
       try {
         const res = await api.getContacts();
         const list = res?.data || (Array.isArray(res) ? res : []);
-        if (list.length > 0) setContacts(list);
+        setContacts(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load contacts from API:', err.message);
       }
@@ -250,7 +250,7 @@ export const AppProvider = ({ children }) => {
       try {
         const data = await api.getSalesOrders();
         const list = data?.data || (Array.isArray(data) ? data : []);
-        if (list.length > 0) setSalesOrders(list);
+        setSalesOrders(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load sales orders from API:', err.message);
       }
@@ -259,7 +259,7 @@ export const AppProvider = ({ children }) => {
       try {
         const data = await api.getInvoices();
         const list = data?.data || (Array.isArray(data) ? data : []);
-        if (list.length > 0) setInvoices(list);
+        setInvoices(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load invoices from API:', err.message);
       }
@@ -268,7 +268,7 @@ export const AppProvider = ({ children }) => {
       try {
         const res = await api.getPurchaseOrders();
         const list = res?.data || (Array.isArray(res) ? res : []);
-        if (list.length > 0) setPurchaseOrders(list);
+        setPurchaseOrders(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load purchase orders from API:', err.message);
       }
@@ -277,7 +277,7 @@ export const AppProvider = ({ children }) => {
       try {
         const res = await api.getVendorBills();
         const list = res?.data || (Array.isArray(res) ? res : []);
-        if (list.length > 0) setVendorBills(list);
+        setVendorBills(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load vendor bills from API:', err.message);
       }
@@ -286,7 +286,7 @@ export const AppProvider = ({ children }) => {
       try {
         const res = await api.getPayments();
         const list = res?.data || (Array.isArray(res) ? res : []);
-        if (list.length > 0) setPayments(list);
+        setPayments(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load payments from API:', err.message);
       }
@@ -295,7 +295,7 @@ export const AppProvider = ({ children }) => {
       try {
         const res = await api.getJournalEntries();
         const list = res?.data || (Array.isArray(res) ? res : []);
-        if (list.length > 0) setJournalEntries(list);
+        setJournalEntries(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load journal entries from API:', err.message);
       }
@@ -304,7 +304,7 @@ export const AppProvider = ({ children }) => {
       try {
         const res = await api.getBudgets();
         const list = res?.budgets || res?.data || (Array.isArray(res) ? res : []);
-        if (list.length > 0) setBudgets(list);
+        setBudgets(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load budgets from API:', err.message);
       }

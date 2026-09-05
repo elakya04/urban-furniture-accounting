@@ -3,6 +3,7 @@ import Invoice from "../models/Invoice.js";
 import VendorBill from "../models/VendorBill.js";
 import Journal from "../models/Journal.js";
 import JournalEntry from "../models/JournalEntry.js";
+import COA from "../models/COA.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
@@ -260,40 +261,74 @@ export const confirmPayment = async (req, res) => {
     }
 
     // ---------------------------------------
-    // Find correct journal
+    // Find or Auto-Configure Journal & Accounts
     // ---------------------------------------
 
-    let journalName;
-
-    if (payment.type === "RECEIVE") {
-      journalName =
-        payment.payment_method === "BANK"
+    let journalName =
+      payment.type === "RECEIVE"
+        ? payment.payment_method === "BANK"
           ? "Customer Receipt - Bank"
-          : "Customer Receipt - Cash";
-    } else {
-      journalName =
-        payment.payment_method === "BANK"
-          ? "Vendor Payment - Bank"
-          : "Vendor Payment - Cash";
-    }
+          : "Customer Receipt - Cash"
+        : payment.payment_method === "BANK"
+        ? "Vendor Payment - Bank"
+        : "Vendor Payment - Cash";
 
-    const journal = await Journal.findOne({
+    let journal = await Journal.findOne({
       journalName,
       type: payment.payment_method
     });
 
     if (!journal) {
-      return res.status(400).json({
-        success: false,
-        message: `${journalName} journal is not configured`
+      journal = await Journal.findOne({
+        journalName: { $regex: new RegExp(`^${journalName}$`, "i") }
       });
     }
 
-    if (!journal.def_debitAcc || !journal.def_creditAcc) {
-      return res.status(400).json({
-        success: false,
-        message: `${journalName} journal does not have default accounts configured`
+    if (!journal) {
+      journal = await Journal.findOne({
+        type: payment.payment_method
       });
+    }
+
+    let debitAccId = journal?.def_debitAcc;
+    let creditAccId = journal?.def_creditAcc;
+
+    if (!debitAccId || !creditAccId) {
+      const assetAccounts = await COA.find({ type: "ASSET" });
+      const liabilityAccounts = await COA.find({ type: "LIABILITY" });
+
+      const bankAcc = assetAccounts.find(a => /bank/i.test(a.accountName)) || assetAccounts[0];
+      const cashAcc = assetAccounts.find(a => /cash/i.test(a.accountName)) || assetAccounts[0];
+      const payableAcc = liabilityAccounts.find(a => /payable/i.test(a.accountName)) || liabilityAccounts[0];
+      const receivableAcc = assetAccounts.find(a => /receivable/i.test(a.accountName)) || assetAccounts[0];
+
+      const resolvedBankAcc = bankAcc || await COA.create({ accountName: "HDFC Bank Operating", type: "ASSET", isActive: true });
+      const resolvedCashAcc = cashAcc || await COA.create({ accountName: "Cash Operating Account", type: "ASSET", isActive: true });
+      const resolvedPayableAcc = payableAcc || await COA.create({ accountName: "Accounts Payable Trade", type: "LIABILITY", isActive: true });
+      const resolvedReceivableAcc = receivableAcc || await COA.create({ accountName: "Accounts Receivable Trade", type: "ASSET", isActive: true });
+
+      const paymentAcc = payment.payment_method === "BANK" ? resolvedBankAcc : resolvedCashAcc;
+
+      if (payment.type === "RECEIVE") {
+        debitAccId = debitAccId || paymentAcc._id;
+        creditAccId = creditAccId || resolvedReceivableAcc._id;
+      } else {
+        debitAccId = debitAccId || resolvedPayableAcc._id;
+        creditAccId = creditAccId || paymentAcc._id;
+      }
+
+      if (journal) {
+        journal.def_debitAcc = journal.def_debitAcc || debitAccId;
+        journal.def_creditAcc = journal.def_creditAcc || creditAccId;
+        await journal.save();
+      } else {
+        journal = await Journal.create({
+          journalName,
+          type: payment.payment_method,
+          def_debitAcc: debitAccId,
+          def_creditAcc: creditAccId
+        });
+      }
     }
 
     // ---------------------------------------
@@ -312,12 +347,12 @@ export const confirmPayment = async (req, res) => {
 
       journalItems: [
         {
-          account: journal.def_debitAcc,
+          account: debitAccId,
           debit: payment.amount,
           credit: 0
         },
         {
-          account: journal.def_creditAcc,
+          account: creditAccId,
           debit: 0,
           credit: payment.amount
         }
@@ -345,7 +380,7 @@ export const confirmPayment = async (req, res) => {
       bill.status = "DUE";
     }
 
-    await bill.save();
+    await bill.save({ validateModifiedOnly: true });
 
     // ---------------------------------------
     // Confirm Payment
