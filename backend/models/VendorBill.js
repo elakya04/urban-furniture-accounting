@@ -25,7 +25,9 @@ const vendorBillSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Contact",
     required: true
-  }
+  },
+  items: { type: Array, default: [] },
+  analytics_account: { type: mongoose.Schema.Types.Mixed }
 }, { timestamps: true });
 
 export default mongoose.model("VendorBill", vendorBillSchema);

@@ -73,10 +73,13 @@ export const PaymentsPage = () => {
     }));
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.amount || Number(formData.amount) <= 0) return;
+    if (isSubmitting || !formData.amount || Number(formData.amount) <= 0) return;
 
+    setIsSubmitting(true);
     try {
       await processPayment({
         invoiceBill: formData.type === 'RECEIVE' ? formData.invoiceBill : undefined,
@@ -90,6 +93,8 @@ export const PaymentsPage = () => {
       setIsAddModalOpen(false);
     } catch (err) {
       // Error handled by app context toast
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

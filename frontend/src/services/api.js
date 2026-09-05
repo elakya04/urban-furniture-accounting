@@ -115,7 +115,7 @@ export const api = {
   updatePurchaseOrder: (id, data) => fetchJSON(`/purchase-orders/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   confirmPurchaseOrder: (id) => fetchJSON(`/purchase-orders/${id}/confirm`, { method: 'POST' }),
   cancelPurchaseOrder: (id) => fetchJSON(`/purchase-orders/${id}/cancel`, { method: 'POST' }),
-  createVendorBillFromPO: (id, data) => fetchJSON(`/purchase-orders/${id}/vendor-bill`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  createVendorBillFromPO: (id, data = {}) => fetchJSON(`/purchase-orders/${id}/vendor-bill`, { method: 'POST', body: JSON.stringify(data) }),
 
   // Vendor Bills
   getVendorBills: () => fetchJSON('/vendor-bills'),

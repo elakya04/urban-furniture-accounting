@@ -1,45 +1,95 @@
 // Accounting logic and mathematical helpers based on Accounting Hackathon - 24 Hours SVG specifications
 
-export const computeBudgetAchieved = (budget, invoices = [], vendorBills = []) => {
+export const computeBudgetAchieved = (budget, invoices = [], vendorBills = [], purchaseOrders = []) => {
   if (!budget || !budget.analytics_account) return 0;
   
-  const analyticId = typeof budget.analytics_account === 'object' 
+  const rawAnalyticId = typeof budget.analytics_account === 'object' 
     ? budget.analytics_account._id 
     : budget.analytics_account;
-  const analyticName = typeof budget.analytics_account === 'object'
+  const rawAnalyticName = typeof budget.analytics_account === 'object'
     ? budget.analytics_account.name
     : '';
 
-  const startDate = new Date(budget.start_date);
-  const endDate = new Date(budget.end_date);
+  const analyticId = String(rawAnalyticId || '').toLowerCase().trim();
+  const analyticName = String(rawAnalyticName || '').toLowerCase().trim();
+
+  const startDate = budget.start_date ? new Date(budget.start_date) : null;
 
   let total = 0;
 
   if (budget.type === 'INCOME') {
     invoices.forEach(inv => {
       const invDate = new Date(inv.invoice_date || inv.createdAt);
-      if (invDate >= startDate && invDate <= endDate && (inv.status === 'POSTED' || inv.status === 'PAID' || inv.status === 'CONFIRMED')) {
-        const items = inv.items || inv.sales?.items || [];
+      const isDateValid = (!startDate || isNaN(startDate) || invDate >= startDate);
+      const isStatusValid = ['POSTED', 'PAID', 'CONFIRMED', 'DUE'].includes(String(inv.status || '').toUpperCase());
+
+      if (isDateValid && isStatusValid) {
+        const items = (inv.items && inv.items.length > 0) ? inv.items : (inv.sales?.items || []);
+        let matchFound = false;
+
         items.forEach(item => {
-          const itemAnalyticId = typeof item.budgetAnalytics === 'object' ? item.budgetAnalytics?._id : item.budgetAnalytics;
-          if (itemAnalyticId === analyticId || item.budgetAnalytics === analyticName) {
+          const itemAnalyticId = String(typeof item.budgetAnalytics === 'object' ? item.budgetAnalytics?._id : (item.budgetAnalytics || '')).toLowerCase().trim();
+          const itemAnalyticName = String(typeof item.budgetAnalytics === 'object' ? item.budgetAnalytics?.name : (item.budgetAnalyticsName || item.budgetAnalytics || '')).toLowerCase().trim();
+
+          const isMatch = (itemAnalyticId && (itemAnalyticId === analyticId || itemAnalyticId.includes(analyticId) || analyticId.includes(itemAnalyticId))) ||
+                          (itemAnalyticName && (itemAnalyticName === analyticName || itemAnalyticName.includes(analyticName) || analyticName.includes(itemAnalyticName)));
+
+          if (isMatch) {
             total += Number(item.total || (item.quantity * item.unitPrice) || 0);
+            matchFound = true;
           }
         });
+
+        if (!matchFound) {
+          const invAnalyticId = String(typeof inv.analytics_account === 'object' ? inv.analytics_account?._id : (inv.analytics_account || '')).toLowerCase().trim();
+          if ((invAnalyticId && (invAnalyticId === analyticId || invAnalyticId.includes(analyticId))) || items.length === 0 || items.every(i => !i.budgetAnalytics)) {
+            total += Number(inv.total_amount || inv.total || 0);
+          }
+        }
       }
     });
   } else {
-    // EXPENSE
-    vendorBills.forEach(bill => {
-      const billDate = new Date(bill.bill_date || bill.createdAt);
-      if (billDate >= startDate && billDate <= endDate && (bill.status === 'POSTED' || bill.status === 'PAID' || bill.status === 'CONFIRMED')) {
-        const items = bill.items || bill.sales?.items || [];
+    // EXPENSE: combine vendor bills and purchase orders (deduplicating converted POs)
+    const activePOs = (purchaseOrders || []).filter(po => {
+      const poIdStr = String(po._id || po.id || '');
+      return !vendorBills.some(vb => String(vb.purchaseOrder || vb.purchase_id || '') === poIdStr);
+    });
+
+    const allExpenseDocs = [...vendorBills, ...activePOs];
+
+    allExpenseDocs.forEach(bill => {
+      const billDate = new Date(bill.bill_date || bill.date || bill.createdAt);
+      const isDateValid = (!startDate || isNaN(startDate) || billDate >= startDate);
+      const isStatusValid = ['POSTED', 'PAID', 'CONFIRMED', 'DUE', 'DRAFT'].includes(String(bill.status || '').toUpperCase());
+
+      if (isDateValid && isStatusValid) {
+        const items = (bill.items && bill.items.length > 0) ? bill.items : (bill.sales?.items || []);
+        let matchFound = false;
+        let matchedItemTotal = 0;
+
         items.forEach(item => {
-          const itemAnalyticId = typeof item.budgetAnalytics === 'object' ? item.budgetAnalytics?._id : item.budgetAnalytics;
-          if (itemAnalyticId === analyticId || item.budgetAnalytics === analyticName) {
-            total += Number(item.total || (item.quantity * item.unitPrice) || 0);
+          const itemAnalyticId = String(typeof item.budgetAnalytics === 'object' ? item.budgetAnalytics?._id : (item.budgetAnalytics || '')).toLowerCase().trim();
+          const itemAnalyticName = String(typeof item.budgetAnalytics === 'object' ? item.budgetAnalytics?.name : (item.budgetAnalyticsName || item.budgetAnalytics || '')).toLowerCase().trim();
+
+          const isMatch = (itemAnalyticId && (itemAnalyticId === analyticId || itemAnalyticId.includes(analyticId) || analyticId.includes(itemAnalyticId))) ||
+                          (itemAnalyticName && (itemAnalyticName === analyticName || itemAnalyticName.includes(analyticName) || analyticName.includes(itemAnalyticName)));
+
+          if (isMatch) {
+            matchedItemTotal += Number(item.total || (item.quantity * item.unitPrice) || 0);
+            matchFound = true;
           }
         });
+
+        if (matchFound) {
+          total += matchedItemTotal;
+        } else {
+          const billAnalyticId = String(typeof bill.analytics_account === 'object' ? bill.analytics_account?._id : (bill.analytics_account || '')).toLowerCase().trim();
+          const salesAnalyticId = String(typeof bill.sales?.analytics_account === 'object' ? bill.sales?.analytics_account?._id : (bill.sales?.analytics_account || '')).toLowerCase().trim();
+
+          if ((billAnalyticId && billAnalyticId === analyticId) || (salesAnalyticId && salesAnalyticId === analyticId) || items.length === 0 || items.every(i => !i.budgetAnalytics)) {
+            total += Number(bill.total || bill.total_amount || bill.amount_paid || 0);
+          }
+        }
       }
     });
   }
@@ -47,8 +97,8 @@ export const computeBudgetAchieved = (budget, invoices = [], vendorBills = []) =
   return total;
 };
 
-export const computeBudgetMetrics = (budget, invoices = [], vendorBills = []) => {
-  const achieved = computeBudgetAchieved(budget, invoices, vendorBills);
+export const computeBudgetMetrics = (budget, invoices = [], vendorBills = [], purchaseOrders = []) => {
+  const achieved = computeBudgetAchieved(budget, invoices, vendorBills, purchaseOrders);
   const committed = Number(budget.committed_amount || 0);
   const achievedPercent = committed > 0 ? (achieved / committed) * 100 : 0;
   const amountToAchieve = committed - achieved;

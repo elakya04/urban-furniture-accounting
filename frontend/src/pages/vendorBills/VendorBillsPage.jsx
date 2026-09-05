@@ -14,36 +14,48 @@ export const VendorBillsPage = () => {
   const [selectedBill, setSelectedBill] = useState(null);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [payFormData, setPayFormData] = useState({
     payment_method: 'CASH',
     amount: 0,
     note: 'Vendor bill paid via Cash'
   });
 
+  const activeBill = selectedBill ? (vendorBills.find(b => b._id === selectedBill._id) || selectedBill) : null;
+
   const handlePayClick = (bill) => {
-    setSelectedBill(bill);
+    const currentBill = vendorBills.find(b => b._id === bill._id) || bill;
+    setSelectedBill(currentBill);
     setPayFormData({
       payment_method: 'CASH',
-      amount: bill.amount_due ?? bill.total,
-      note: `Vendor Bill payment for ${bill.bill_number}`
+      amount: currentBill.amount_due ?? currentBill.total,
+      note: `Vendor Bill payment for ${currentBill.bill_number}`
     });
     setIsPayModalOpen(true);
   };
 
-  const handleProcessPay = (e) => {
+  const handleProcessPay = async (e) => {
     e.preventDefault();
-    if (!selectedBill || payFormData.amount <= 0) return;
+    if (!activeBill || payFormData.amount <= 0 || isSubmitting) return;
 
-    processPayment({
-      vendorbill: selectedBill._id,
-      partnerName: selectedBill.vendor?.name || selectedBill.vendorName || 'Vendor',
-      payment_method: payFormData.payment_method,
-      amount: Number(payFormData.amount),
-      type: 'SEND',
-      note: payFormData.note
-    });
+    setIsSubmitting(true);
+    try {
+      await processPayment({
+        vendorbill: activeBill._id,
+        partnerName: activeBill.vendor?.name || activeBill.vendorName || 'Vendor',
+        payment_method: payFormData.payment_method,
+        amount: Number(payFormData.amount),
+        type: 'SEND',
+        note: payFormData.note
+      });
 
-    setIsPayModalOpen(false);
+      setIsPayModalOpen(false);
+    } catch (err) {
+      console.warn('[VENDOR BILL PAY WARNING]:', err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const columns = [
@@ -115,23 +127,23 @@ export const VendorBillsPage = () => {
       <Table columns={columns} data={vendorBills} onRowClick={(row) => setSelectedBill(row)} />
 
       {/* Vendor Bill Form View Modal */}
-      <Modal isOpen={Boolean(selectedBill) && !isPayModalOpen} onClose={() => setSelectedBill(null)} title={`Form View: Vendor Bill ${selectedBill?.bill_number || ''}`} maxWidth="max-w-4xl">
-        {selectedBill && (
+      <Modal isOpen={Boolean(activeBill) && !isPayModalOpen} onClose={() => setSelectedBill(null)} title={`Form View: Vendor Bill ${activeBill?.bill_number || ''}`} maxWidth="max-w-4xl">
+        {activeBill && (
           <div className="space-y-6">
             {/* Action Bar & Stage Status */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div className="flex items-center gap-2">
-                {selectedBill.status === 'DRAFT' && !isContact && (
+                {activeBill.status === 'DRAFT' && !isContact && (
                   <button
-                    onClick={() => { confirmVendorBill(selectedBill._id); setSelectedBill(null); }}
+                    onClick={() => { confirmVendorBill(activeBill._id); }}
                     className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold rounded-lg shadow-xs"
                   >
                     Confirm & Post Purchase Journal Entry
                   </button>
                 )}
-                {(selectedBill.status === 'DUE' || selectedBill.status === 'OVERDUE') && !isContact && (
+                {(activeBill.status === 'DUE' || activeBill.status === 'OVERDUE') && !isContact && (
                   <button
-                    onClick={() => handlePayClick(selectedBill)}
+                    onClick={() => handlePayClick(activeBill)}
                     className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs"
                   >
                     <CreditCard className="w-4 h-4" /> Pay Vendor Bill
@@ -139,13 +151,13 @@ export const VendorBillsPage = () => {
                 )}
 
                 <button
-                  onClick={() => generateInvoicePDF(selectedBill, selectedBill.vendor?.name || selectedBill.vendorName || 'Vendor')}
+                  onClick={() => generateInvoicePDF(activeBill, activeBill.vendor?.name || activeBill.vendorName || 'Vendor')}
                   className="flex items-center gap-1 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg"
                 >
                   <Printer className="w-4 h-4 text-slate-500" /> Print PDF
                 </button>
                 <button
-                  onClick={() => showToast(`Vendor Bill ${selectedBill.bill_number} sent via email prompt`, 'info')}
+                  onClick={() => showToast(`Vendor Bill ${activeBill.bill_number} sent via email prompt`, 'info')}
                   className="flex items-center gap-1 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg"
                 >
                   <Mail className="w-4 h-4 text-slate-500" /> Send Email
@@ -156,7 +168,7 @@ export const VendorBillsPage = () => {
               <div className="flex items-center gap-1 text-xs font-semibold">
                 {['DRAFT', 'DUE', 'PAID'].map((st, idx) => (
                   <React.Fragment key={st}>
-                    <span className={`px-2.5 py-1 rounded-md ${selectedBill.status === st ? 'bg-slate-900 text-white font-bold' : 'bg-slate-200/60 text-slate-500'}`}>
+                    <span className={`px-2.5 py-1 rounded-md ${activeBill.status === st ? 'bg-slate-900 text-white font-bold' : 'bg-slate-200/60 text-slate-500'}`}>
                       {st}
                     </span>
                     {idx < 2 && <ArrowRight className="w-3 h-3 text-slate-300" />}
@@ -169,27 +181,27 @@ export const VendorBillsPage = () => {
             <div className="grid grid-cols-3 gap-4 text-xs bg-white p-4 rounded-xl border border-slate-200">
               <div>
                 <span className="text-slate-400 uppercase font-semibold">Vendor Bill Number:</span>
-                <div className="text-base font-bold text-slate-900">{selectedBill.bill_number}</div>
+                <div className="text-base font-bold text-slate-900">{activeBill.bill_number}</div>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">Bill Reference:</span>
-                <div className="text-base font-bold text-slate-800">{selectedBill.bill_reference || (selectedBill.sales?.po_number ? `REF-${selectedBill.sales.po_number}` : 'Direct Bill')}</div>
+                <div className="text-base font-bold text-slate-800">{activeBill.bill_reference || (activeBill.sales?.po_number ? `REF-${activeBill.sales.po_number}` : 'Direct Bill')}</div>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">Vendor Name:</span>
-                <div className="text-base font-bold text-slate-800">{selectedBill.vendor?.name || selectedBill.vendorName || 'Vendor'}</div>
+                <div className="text-base font-bold text-slate-800">{activeBill.vendor?.name || activeBill.vendorName || (typeof activeBill.vendor === 'string' ? activeBill.vendor : 'Vendor')}</div>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">PO Reference:</span>
-                <div className="font-semibold text-sky-600">{selectedBill.sales?.po_number || (selectedBill.sales ? `Linked PO` : 'Direct Bill')}</div>
+                <div className="font-semibold text-sky-600">{activeBill.sales?.po_number || (activeBill.sales ? `Linked PO` : 'Direct Bill')}</div>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">Bill Date:</span>
-                <div className="font-semibold text-slate-700">{formatDate(selectedBill.bill_date)}</div>
+                <div className="font-semibold text-slate-700">{formatDate(activeBill.bill_date)}</div>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">Default Chart of Account:</span>
-                <div className="font-semibold text-rose-700">{selectedBill.items?.[0]?.accountName || selectedBill.accountName || 'Purchase'}</div>
+                <div className="font-semibold text-rose-700">{activeBill.items?.[0]?.accountName || activeBill.accountName || 'Purchase'}</div>
               </div>
             </div>
 
@@ -210,7 +222,7 @@ export const VendorBillsPage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {selectedBill.items?.map((item, idx) => (
+                    {activeBill.items?.map((item, idx) => (
                       <tr key={idx}>
                         <td className="p-2.5 text-slate-400">{idx + 1}.</td>
                         <td className="p-2.5 font-semibold text-slate-800">{item.productName || item.product?.productName || item.product || '-'}</td>
@@ -230,15 +242,15 @@ export const VendorBillsPage = () => {
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-xs text-slate-700 max-w-xs ml-auto">
               <div className="flex justify-between">
                 <span>Total Amount:</span>
-                <span className="font-bold text-slate-900">{formatCurrency(selectedBill.total)}</span>
+                <span className="font-bold text-slate-900">{formatCurrency(activeBill.total)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Amount Paid:</span>
-                <span className="font-medium text-emerald-700">{formatCurrency(selectedBill.amount_paid || 0)}</span>
+                <span className="font-medium text-emerald-700">{formatCurrency(activeBill.amount_paid || 0)}</span>
               </div>
               <div className="flex justify-between pt-1 border-t border-slate-200 font-bold text-sm text-slate-900">
                 <span>Amount Due:</span>
-                <span className="text-rose-700">{formatCurrency(selectedBill.amount_due ?? selectedBill.total)}</span>
+                <span className="text-rose-700">{formatCurrency(activeBill.amount_due ?? activeBill.total)}</span>
               </div>
             </div>
           </div>

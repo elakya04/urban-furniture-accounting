@@ -97,24 +97,46 @@ export const BudgetsPage = () => {
 
   const getMatchingInvoicesAndBills = (budget) => {
     if (!budget) return [];
-    const analyticName = getAnalyticName(budget.analytics_account);
-    const analyticId = typeof budget.analytics_account === 'object' ? budget.analytics_account._id : budget.analytics_account;
-    const start = new Date(budget.start_date);
-    const end = new Date(budget.end_date);
+    const analyticId = String(typeof budget.analytics_account === 'object' ? budget.analytics_account?._id : (budget.analytics_account || '')).toLowerCase().trim();
+    const analyticName = String(typeof budget.analytics_account === 'object' ? budget.analytics_account?.name : (getAnalyticName(budget.analytics_account) || '')).toLowerCase().trim();
+    const start = budget.start_date ? new Date(budget.start_date) : null;
+    const end = budget.end_date ? new Date(budget.end_date) : null;
 
     if (budget.type === 'INCOME') {
       return invoices.filter(inv => {
         const d = new Date(inv.invoice_date || inv.createdAt);
-        if (d >= start && d <= end) {
-          return inv.items?.some(i => i.budgetAnalytics === analyticId || i.budgetAnalytics === analyticName);
+        const isDateValid = (!start || isNaN(start) || d >= start) && (!end || isNaN(end) || d <= end);
+        const isStatusValid = ['POSTED', 'PAID', 'CONFIRMED', 'DUE'].includes(String(inv.status || '').toUpperCase());
+
+        if (isDateValid && isStatusValid) {
+          const items = (inv.items && inv.items.length > 0) ? inv.items : (inv.sales?.items || []);
+          if (items.length === 0) return true;
+          return items.some(i => {
+            const itemAnalyticId = String(typeof i.budgetAnalytics === 'object' ? i.budgetAnalytics?._id : (i.budgetAnalytics || '')).toLowerCase().trim();
+            const itemAnalyticName = String(typeof i.budgetAnalytics === 'object' ? i.budgetAnalytics?.name : (i.budgetAnalyticsName || i.budgetAnalytics || '')).toLowerCase().trim();
+            return (itemAnalyticId && (itemAnalyticId === analyticId || itemAnalyticId.includes(analyticId))) ||
+                   (itemAnalyticName && (itemAnalyticName === analyticName || itemAnalyticName.includes(analyticName))) ||
+                   !i.budgetAnalytics;
+          });
         }
         return false;
       });
     } else {
       return vendorBills.filter(bill => {
         const d = new Date(bill.bill_date || bill.createdAt);
-        if (d >= start && d <= end) {
-          return bill.items?.some(i => i.budgetAnalytics === analyticId || i.budgetAnalytics === analyticName);
+        const isDateValid = (!start || isNaN(start) || d >= start) && (!end || isNaN(end) || d <= end);
+        const isStatusValid = ['POSTED', 'PAID', 'CONFIRMED', 'DUE'].includes(String(bill.status || '').toUpperCase());
+
+        if (isDateValid && isStatusValid) {
+          const items = (bill.items && bill.items.length > 0) ? bill.items : (bill.sales?.items || []);
+          if (items.length === 0) return true;
+          return items.some(i => {
+            const itemAnalyticId = String(typeof i.budgetAnalytics === 'object' ? i.budgetAnalytics?._id : (i.budgetAnalytics || '')).toLowerCase().trim();
+            const itemAnalyticName = String(typeof i.budgetAnalytics === 'object' ? i.budgetAnalytics?.name : (i.budgetAnalyticsName || i.budgetAnalytics || '')).toLowerCase().trim();
+            return (itemAnalyticId && (itemAnalyticId === analyticId || itemAnalyticId.includes(analyticId))) ||
+                   (itemAnalyticName && (itemAnalyticName === analyticName || itemAnalyticName.includes(analyticName))) ||
+                   !i.budgetAnalytics;
+          });
         }
         return false;
       });

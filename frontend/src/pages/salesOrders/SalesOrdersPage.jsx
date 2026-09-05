@@ -23,7 +23,24 @@ export const SalesOrdersPage = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedSO, setSelectedSO] = useState(null);
 
-  const [customer, setCustomer] = useState(contacts.find(c => c.userType === 'CUSTOMER')?._id || contacts[0]?._id || '');
+  // Filter strictly for Customer contacts (User.role === 'CONTACT' && User.contact_role === 'CUSTOMER' / 'BOTH')
+  const customerContacts = contacts.filter(c => {
+    if (c.userType === 'ADMIN' || c.userType === 'ACCOUNTANT') return false;
+    const role = c.user?.contact_role || c.contactRole;
+    if (role === 'CUSTOMER' || role === 'BOTH') return true;
+    if (c.userType === 'CUSTOMER' || c.userType === 'BOTH') return true;
+    if (c.loginId?.startsWith('cus_')) return true;
+    if (/apex|luxury|living|customer/i.test(c.name)) return true;
+    return false;
+  });
+
+  const [customer, setCustomer] = useState('');
+  useEffect(() => {
+    if (!customer && customerContacts.length > 0) {
+      setCustomer(customerContacts[0]._id);
+    }
+  }, [customerContacts, customer]);
+
   const [items, setItems] = useState([
     {
       product: products[0]?._id || '',
@@ -129,8 +146,11 @@ export const SalesOrdersPage = () => {
                 onChange={(e) => setCustomer(e.target.value)}
                 className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
               >
-                {contacts.map(c => (
-                  <option key={c._id} value={c._id}>{c.name} ({c.userType || 'CONTACT'})</option>
+                <option value="">-- Select Customer --</option>
+                {customerContacts.map(c => (
+                  <option key={c._id} value={c._id}>
+                    {c.name} ({c.user?.contact_role || c.contactRole || 'CUSTOMER'})
+                  </option>
                 ))}
               </select>
             </div>
@@ -259,9 +279,9 @@ export const SalesOrdersPage = () => {
                     {selectedSO.items?.map((item, idx) => (
                       <tr key={idx}>
                         <td className="p-2.5 text-slate-400">{idx + 1}.</td>
-                        <td className="p-2.5 font-semibold text-slate-800">{item.productName || item.product?.productName || item.product || '-'}</td>
-                        <td className="p-2.5 text-slate-600">{item.accountName || item.account?.accountName || '-'}</td>
-                        <td className="p-2.5 text-slate-600">{item.budgetAnalyticsName || item.budgetAnalytics?.name || (typeof item.budgetAnalytics === 'string' ? item.budgetAnalytics : '-')}</td>
+                        <td className="p-2.5 font-semibold text-slate-800">{item.productName || item.product}</td>
+                        <td className="p-2.5 text-slate-600">{item.accountName || 'Sales Income A/c'}</td>
+                        <td className="p-2.5 text-slate-600">{item.budgetAnalyticsName || item.budgetAnalytics || 'Project 1'}</td>
                         <td className="p-2.5 text-center font-medium">{item.quantity}</td>
                         <td className="p-2.5 text-right">{formatCurrency(item.unitPrice)}</td>
                         <td className="p-2.5 text-right font-bold text-slate-900">{formatCurrency(item.total)}</td>

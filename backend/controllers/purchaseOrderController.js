@@ -405,6 +405,7 @@ export const createVendorBillFromPurchaseOrder = async (req, res) => {
       amount_paid: 0,
       total: purchaseOrder.total_amount,
       vendor: purchaseOrder.vendor,
+      items: purchaseOrder.items || [],
       createdBy: req.user?._id,
       status: "DUE"
     });
