@@ -6,13 +6,14 @@ import {
   getJournalById,
   updateJournal
 } from "../controllers/journalController.js";
+import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.post("/", createJournal);
-router.get("/", getJournals);
+router.post("/", protect, createJournal);
+router.get("/", protect, getJournals);
 
-router.get("/:id", getJournalById);
-router.patch("/:id", updateJournal);
+router.get("/:id", protect, getJournalById);
+router.patch("/:id", protect, updateJournal);
 
 export default router;

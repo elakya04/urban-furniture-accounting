@@ -8,16 +8,17 @@ import {
   updateAccountStatus,
   getAccountLedger
 } from "../controllers/accountController.js";
+import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.post("/", createAccount);
-router.get("/", getAccounts);
+router.post("/", protect, createAccount);
+router.get("/", protect, getAccounts);
 
-router.get("/:id", getAccountById);
-router.patch("/:id", updateAccount);
-router.patch("/:id/status", updateAccountStatus);
+router.get("/:id", protect, getAccountById);
+router.patch("/:id", protect, updateAccount);
+router.patch("/:id/status", protect, updateAccountStatus);
 
-router.get("/:id/ledger", getAccountLedger);
+router.get("/:id/ledger", protect, getAccountLedger);
 
 export default router;

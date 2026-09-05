@@ -9,6 +9,7 @@ import {
   cancelPurchaseOrder,
   createVendorBillFromPurchaseOrder
 } from "../controllers/purchaseOrderController.js";
+import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -16,6 +17,7 @@ const router = express.Router();
 // Create Purchase Order
 router.post(
   "/",
+  protect,
   createPurchaseOrder
 );
 
@@ -23,6 +25,7 @@ router.post(
 // Get all Purchase Orders
 router.get(
   "/",
+  protect,
   getPurchaseOrders
 );
 
@@ -30,6 +33,7 @@ router.get(
 // Get Purchase Order by ID
 router.get(
   "/:id",
+  protect,
   getPurchaseOrderById
 );
 
@@ -37,6 +41,7 @@ router.get(
 // Update Purchase Order
 router.patch(
   "/:id",
+  protect,
   updatePurchaseOrder
 );
 
@@ -44,6 +49,7 @@ router.patch(
 // Confirm Purchase Order
 router.post(
   "/:id/confirm",
+  protect,
   confirmPurchaseOrder
 );
 
@@ -51,6 +57,7 @@ router.post(
 // Cancel Purchase Order
 router.post(
   "/:id/cancel",
+  protect,
   cancelPurchaseOrder
 );
 
@@ -58,6 +65,7 @@ router.post(
 // Create Vendor Bill from Purchase Order
 router.post(
   "/:id/vendor-bill",
+  protect,
   createVendorBillFromPurchaseOrder
 );
 

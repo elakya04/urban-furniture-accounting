@@ -10,6 +10,7 @@ import {
   getMyVendorBills,
   getMyVendorBillById
 } from "../controllers/vendorBillController.js";
+import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -18,11 +19,13 @@ const router = express.Router();
 // IMPORTANT: keep these BEFORE /:id
 router.get(
   "/me/vendor-bills",
+  protect,
   getMyVendorBills
 );
 
 router.get(
   "/me/vendor-bills/:id",
+  protect,
   getMyVendorBillById
 );
 
@@ -30,6 +33,7 @@ router.get(
 // Get all vendor bills
 router.get(
   "/",
+  protect,
   getVendorBills
 );
 
@@ -37,6 +41,7 @@ router.get(
 // Get vendor bill by ID
 router.get(
   "/:id",
+  protect,
   getVendorBillById
 );
 
@@ -44,6 +49,7 @@ router.get(
 // Confirm vendor bill
 router.post(
   "/:id/confirm",
+  protect,
   confirmVendorBill
 );
 
@@ -51,6 +57,7 @@ router.post(
 // Cancel vendor bill
 router.post(
   "/:id/cancel",
+  protect,
   cancelVendorBill
 );
 
@@ -58,6 +65,7 @@ router.post(
 // Get payments for vendor bill
 router.get(
   "/:id/payments",
+  protect,
   getVendorBillPayments
 );
 
@@ -65,6 +73,7 @@ router.get(
 // Generate vendor bill PDF
 router.get(
   "/:id/pdf",
+  protect,
   getVendorBillPdf
 );
 
