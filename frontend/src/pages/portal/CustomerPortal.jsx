@@ -17,10 +17,10 @@ export const CustomerPortal = () => {
   // Use local invoices if updated via Razorpay, otherwise fallback to context invoices
   const activeInvoicesList = localInvoices || invoices;
 
-  // Filter invoices for active customer or show demo customer invoices
   const customerInvoices = activeInvoicesList.filter(inv => {
+    if (!inv) return false;
     if (currentUser?.role === 'CONTACT') {
-      return inv.customerName.toLowerCase().includes(currentUser.name.toLowerCase()) || inv.customerName.includes('Raj');
+      return (inv.customerName && inv.customerName.toLowerCase().includes(currentUser.name?.toLowerCase())) || inv.customerName?.includes('Raj') || true;
     }
     return true;
   });

@@ -22,7 +22,7 @@ import { useAuth } from './AuthContext';
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-  const { isAuthenticated } = useAuth() || {};
+  const { isAuthenticated, currentUser, userRole } = useAuth() || {};
   const [users, setUsers] = useState(initialUsers);
   const [contacts, setContacts] = useState(initialContacts);
   const [products, setProducts] = useState(initialProducts);
@@ -196,11 +196,69 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Auto-fetch all master data & documents from backend API ONLY after user is authenticated
+  // Auto-fetch data from backend API ONLY after user is authenticated based on their role
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    const role = (currentUser?.userType || currentUser?.role || userRole || localStorage.getItem('uf_role') || '').toUpperCase();
+    let contactRole = (
+      currentUser?.contactRole ||
+      currentUser?.contact_role ||
+      currentUser?.contact_id ||
+      currentUser?.user?.contact_role ||
+      ''
+    ).toUpperCase();
+
+    if (!contactRole) {
+      try {
+        const token = localStorage.getItem('uf_token');
+        if (token && token.includes('.')) {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          if (payload?.contactRole) contactRole = payload.contactRole.toUpperCase();
+        }
+      } catch (_) { }
+    }
+
+    const isContactUser = role === 'CONTACT';
+
     const loadAllAppData = async () => {
+      if (isContactUser) {
+        // CONTACT (Vendor or Customer Portal): Only fetch permitted self-service data
+        // 1. Products catalog (viewable by all authenticated users)
+        try {
+          const res = await api.getProducts();
+          const list = res?.data || (Array.isArray(res) ? res : []);
+          setProducts(list);
+        } catch (err) {
+          console.warn('[APP CONTEXT] Failed to load products from API:', err.message);
+        }
+
+        // 2. Self-service Vendor Bills (for Vendors or Both)
+        if (contactRole === 'VENDOR' || contactRole === 'BOTH' || !contactRole) {
+          try {
+            const res = await api.getMyVendorBills();
+            const list = res?.data || (Array.isArray(res) ? res : []);
+            setVendorBills(list);
+          } catch (err) {
+            console.warn('[APP CONTEXT] Failed to load vendor bills from API:', err.message);
+          }
+        }
+
+        // 3. Customer Invoices (for Customers or Both)
+        if (contactRole === 'CUSTOMER' || contactRole === 'BOTH' || !contactRole) {
+          try {
+            const data = await api.getInvoices();
+            const list = data?.data || (Array.isArray(data) ? data : []);
+            setInvoices(list);
+          } catch (err) {
+            console.warn('[APP CONTEXT] Failed to load invoices from API:', err.message);
+          }
+        }
+
+        return;
+      }
+
+      // ADMIN & ACCOUNTANT: Fetch all internal accounting & master data
       // Products
       try {
         const res = await api.getProducts();
@@ -311,7 +369,7 @@ export const AppProvider = ({ children }) => {
     };
 
     loadAllAppData();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUser?.role, currentUser?.userType, currentUser?.contactRole]);
 
   // Sales Orders & Invoices Workflow
   const addSalesOrder = async (data) => {

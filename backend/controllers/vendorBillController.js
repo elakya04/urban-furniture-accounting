@@ -306,6 +306,7 @@ export const getMyVendorBills = async (req, res) => {
       vendor: vendorContactId
     })
       .populate("sales")
+      .populate("vendor")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
