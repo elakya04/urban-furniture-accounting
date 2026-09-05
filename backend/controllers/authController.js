@@ -3,6 +3,7 @@ import Contact from "../models/Contact.js";
 import dotenv from "dotenv";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import emailValidator from "../middleware/emailValidator.js";
 
 dotenv.config();
 

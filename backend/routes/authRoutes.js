@@ -4,10 +4,11 @@ import { register, login, logout, me} from "../controllers/authController.js";
 
 import {protect} from "../middleware/auth.js";
 import uploadProfileImage from "../middleware/upload.js";
+import emailValidator from "../middleware/emailValidator.js";
 
 const router = express.Router();
 
-router.post("/register",uploadProfileImage,register);
+router.post("/register",emailValidator,uploadProfileImage,register);
 
 // router.post("/register-contact",registerContact);
 
