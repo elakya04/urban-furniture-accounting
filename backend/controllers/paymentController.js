@@ -471,8 +471,8 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    const key_id = process.env.RAZORPAY_KEY_ID || "rzp_test_TW1Unx3k97P93z";
-    const key_secret = process.env.RAZORPAY_KEY_SECRET || "QQbHLpHVIkvqNNlJcVsMxDWt";
+    const key_id = process.env.RAZORPAY_KEY_ID;
+    const key_secret = process.env.RAZORPAY_KEY_SECRET;
 
     const razorpay = new Razorpay({
       key_id,
@@ -486,9 +486,9 @@ export const createOrder = async (req, res) => {
       currency: "INR",
       receipt: `rcpt_${Date.now()}`,
       notes: {
-        invoiceId: invoiceId || "",
-        inv_number: inv_number || "",
-        customerName: customerName || ""
+         invoiceId: String(invoiceId || ""),
+         inv_number: String(inv_number || ""),
+         customerName: String(customerName || "")
       }
     });
 
@@ -520,7 +520,7 @@ export const verifyPayment = async (req, res) => {
       amount
     } = req.body;
 
-    const key_secret = process.env.RAZORPAY_KEY_SECRET || "QQbHLpHVIkvqNNlJcVsMxDWt";
+    const key_secret = process.env.RAZORPAY_KEY_SECRET;
 
     const expectedSignature = crypto
       .createHmac("sha256", key_secret)
@@ -576,4 +576,4 @@ export const verifyPayment = async (req, res) => {
       error: error.message
     });
   }
-};
+};
