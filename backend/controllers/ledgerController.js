@@ -2,8 +2,15 @@ import JournalEntry from "../models/JournalEntry.js";
 
 export const getLedger = async (req, res) => {
   try {
-    const { accountId } = req.params;
+    const accountId = req.params.accountId || req.params.accid;
     const { startDate, endDate } = req.query;
+
+    if (!accountId) {
+      return res.status(400).json({
+        success: false,
+        message: "Account ID is required"
+      });
+    }
 
     const filter = {
       status: "POSTED",
@@ -26,22 +33,25 @@ export const getLedger = async (req, res) => {
       .sort({ date: 1 });
 
     let balance = 0;
+    const ledger = [];
 
-    const ledger = journalEntries.map((entry) => {
+    for (const entry of journalEntries) {
       const item = entry.journalItems.find(
-        (item) => item.account.toString() === accountId
+        (item) => item.account && item.account.toString() === accountId.toString()
       );
 
-      balance += item.debit - item.credit;
+      if (item) {
+        balance += (item.debit || 0) - (item.credit || 0);
 
-      return {
-        date: entry.date,
-        reference: entry.inv_bill,
-        debit: item.debit,
-        credit: item.credit,
-        balance
-      };
-    });
+        ledger.push({
+          date: entry.date,
+          reference: entry.inv_bill,
+          debit: item.debit || 0,
+          credit: item.credit || 0,
+          balance
+        });
+      }
+    }
 
     return res.status(200).json({
       success: true,

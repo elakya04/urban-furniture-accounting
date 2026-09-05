@@ -1,4 +1,5 @@
 import Budget from "../models/Budget.js";
+import User from "../models/User.js";
 
 export const createBudget = async (req, res) => {
   try {
@@ -25,6 +26,15 @@ export const createBudget = async (req, res) => {
       });
     }
 
+    let responsiblePerson = req.contact?.user || req.user?.user_id || req.body.responsiblePerson;
+    if (!responsiblePerson) {
+      let user = await User.findOne({ role: req.role || "ACCOUNTANT" });
+      if (!user) {
+        user = await User.create({ role: req.role || "ACCOUNTANT", isActive: true });
+      }
+      responsiblePerson = user._id;
+    }
+
     const budget = await Budget.create({
       name,
       analytics_account: analyticAccountId,
@@ -32,7 +42,7 @@ export const createBudget = async (req, res) => {
       committed_amount: amount,
       start_date,
       end_date,
-      responsiblePerson: req.contactid
+      responsiblePerson
     });
 
     return res.status(201).json({
