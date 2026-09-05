@@ -74,7 +74,7 @@ export const JournalsPage = () => {
               required
               value={formData.journalName}
               onChange={(e) => setFormData({ ...formData, journalName: e.target.value })}
-              placeholder="e.g. Sales Journal"
+              placeholder="Enter journal name"
               className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
             />
           </div>

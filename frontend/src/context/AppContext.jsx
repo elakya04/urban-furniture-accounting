@@ -1,20 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import {
-  initialUsers,
-  initialContacts,
-  initialProducts,
-  initialCOA,
-  initialJournals,
-  initialAnalyticsAccounts,
-  initialBudgets,
-  initialSalesOrders,
-  initialInvoices,
-  initialPurchaseOrders,
-  initialVendorBills,
-  initialPayments,
-  initialJournalEntries,
-  initialAuditLogs
-} from '../services/mockData';
 import { validateJournalEntryBalance, computeBudgetMetrics } from '../utils/accountingMath';
 import { api } from '../services/api';
 import { useAuth } from './AuthContext';
@@ -23,20 +7,20 @@ const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
   const { isAuthenticated, currentUser, userRole } = useAuth() || {};
-  const [users, setUsers] = useState(initialUsers);
-  const [contacts, setContacts] = useState(initialContacts);
-  const [products, setProducts] = useState(initialProducts);
-  const [coa, setCOA] = useState(initialCOA);
-  const [journals, setJournals] = useState(initialJournals);
-  const [analyticAccounts, setAnalyticAccounts] = useState(initialAnalyticsAccounts);
-  const [budgets, setBudgets] = useState(initialBudgets);
-  const [salesOrders, setSalesOrders] = useState(initialSalesOrders);
-  const [invoices, setInvoices] = useState(initialInvoices);
-  const [purchaseOrders, setPurchaseOrders] = useState(initialPurchaseOrders);
-  const [vendorBills, setVendorBills] = useState(initialVendorBills);
-  const [payments, setPayments] = useState(initialPayments);
-  const [journalEntries, setJournalEntries] = useState(initialJournalEntries);
-  const [auditLogs, setAuditLogs] = useState(initialAuditLogs);
+  const [users, setUsers] = useState([]);
+  const [contacts, setContacts] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [coa, setCOA] = useState([]);
+  const [journals, setJournals] = useState([]);
+  const [analyticAccounts, setAnalyticAccounts] = useState([]);
+  const [budgets, setBudgets] = useState([]);
+  const [salesOrders, setSalesOrders] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [vendorBills, setVendorBills] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [journalEntries, setJournalEntries] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [toasts, setToasts] = useState([]);
 
   // Toast notification system

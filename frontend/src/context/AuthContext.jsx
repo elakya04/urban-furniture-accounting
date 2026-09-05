@@ -60,25 +60,6 @@ export const AuthProvider = ({ children }) => {
       throw new Error(res?.message || 'Login failed. Invalid response from server.');
     } catch (err) {
       console.error('[AUTH CONTEXT] Login Error:', err.message);
-
-      // Fallback for local frontend demo testing if backend database is offline
-      if (err.message.includes('Failed to fetch') || err.message.includes('503')) {
-        console.warn('[AUTH CONTEXT] Backend server offline. Falling back to local mock authentication.');
-        const mockUser = {
-          _id: `u_${Date.now()}`,
-          name: loginId,
-          loginId,
-          userType: 'ADMIN',
-          role: 'ADMIN',
-          email: `${loginId}@example.com`,
-        };
-        localStorage.setItem('uf_token', 'mock_token_1d');
-        localStorage.setItem('uf_user', JSON.stringify(mockUser));
-        localStorage.setItem('uf_role', 'ADMIN');
-        setCurrentUser(mockUser);
-        return mockUser;
-      }
-
       throw err;
     }
   };
@@ -92,7 +73,7 @@ export const AuthProvider = ({ children }) => {
       console.log('[AUTH CONTEXT] Registering new account:', payload.loginId);
 
       const fullPayload = {
-        profile: 'https://via.placeholder.com/150',
+        profile: payload.profile || '',
         ...payload,
       };
 
@@ -111,25 +92,6 @@ export const AuthProvider = ({ children }) => {
       throw new Error(res?.message || 'Registration failed.');
     } catch (err) {
       console.error('[AUTH CONTEXT] Registration Error:', err.message);
-
-      if (err.message.includes('Failed to fetch') || err.message.includes('503')) {
-        console.warn('[AUTH CONTEXT] Backend server offline. Falling back to local registration.');
-        const mockUser = {
-          _id: `u_${Date.now()}`,
-          name: payload.name,
-          loginId: payload.loginId,
-          email: payload.email,
-          userType: payload.userType,
-          role: payload.userType,
-          contactRole: payload.contactRole || null,
-        };
-        localStorage.setItem('uf_token', 'mock_token_1d');
-        localStorage.setItem('uf_user', JSON.stringify(mockUser));
-        localStorage.setItem('uf_role', payload.userType);
-        setCurrentUser(mockUser);
-        return mockUser;
-      }
-
       throw err;
     }
   };

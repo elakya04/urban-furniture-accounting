@@ -259,9 +259,9 @@ export const SalesOrdersPage = () => {
                     {selectedSO.items?.map((item, idx) => (
                       <tr key={idx}>
                         <td className="p-2.5 text-slate-400">{idx + 1}.</td>
-                        <td className="p-2.5 font-semibold text-slate-800">{item.productName || item.product}</td>
-                        <td className="p-2.5 text-slate-600">{item.accountName || 'Sales Income A/c'}</td>
-                        <td className="p-2.5 text-slate-600">{item.budgetAnalyticsName || item.budgetAnalytics || 'Project 1'}</td>
+                        <td className="p-2.5 font-semibold text-slate-800">{item.productName || item.product?.productName || item.product || '-'}</td>
+                        <td className="p-2.5 text-slate-600">{item.accountName || item.account?.accountName || '-'}</td>
+                        <td className="p-2.5 text-slate-600">{item.budgetAnalyticsName || item.budgetAnalytics?.name || (typeof item.budgetAnalytics === 'string' ? item.budgetAnalytics : '-')}</td>
                         <td className="p-2.5 text-center font-medium">{item.quantity}</td>
                         <td className="p-2.5 text-right">{formatCurrency(item.unitPrice)}</td>
                         <td className="p-2.5 text-right font-bold text-slate-900">{formatCurrency(item.total)}</td>

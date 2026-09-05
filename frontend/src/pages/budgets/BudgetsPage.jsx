@@ -24,12 +24,12 @@ export const BudgetsPage = () => {
   const [newLimitInput, setNewLimitInput] = useState('');
 
   const [formData, setFormData] = useState({
-    name: 'January 2026',
+    name: '',
     analytics_account: '',
-    start_date: '2026-01-01',
-    end_date: '2026-01-31',
+    start_date: '',
+    end_date: '',
     type: 'EXPENSE',
-    committed_amount: 200000,
+    committed_amount: '',
     responsiblePerson: ''
   });
 
@@ -74,6 +74,15 @@ export const BudgetsPage = () => {
     });
 
     setIsAddModalOpen(false);
+    setFormData({
+      name: '',
+      analytics_account: analyticAccounts[0]?._id || '',
+      start_date: '',
+      end_date: '',
+      type: 'EXPENSE',
+      committed_amount: '',
+      responsiblePerson: users[0]?._id || ''
+    });
   };
 
   const handleReviseSubmit = (e) => {
@@ -468,7 +477,7 @@ export const BudgetsPage = () => {
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g. January 2026 / Project A"
+              placeholder="Enter budget name"
               className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
             />
           </div>
@@ -530,7 +539,7 @@ export const BudgetsPage = () => {
               min="1"
               value={formData.committed_amount}
               onChange={(e) => setFormData({ ...formData, committed_amount: e.target.value })}
-              placeholder="200000"
+              placeholder="0.00"
               className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 font-semibold focus:outline-none"
             />
           </div>

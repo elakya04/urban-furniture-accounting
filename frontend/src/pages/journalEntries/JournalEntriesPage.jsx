@@ -37,8 +37,8 @@ export const JournalEntriesPage = () => {
   useEffect(() => {
     if (coa.length >= 2 && items.length === 0) {
       setItems([
-        { account: coa[0]._id, partner: contacts[0]?.name || '', debit: 10000, credit: 0 },
-        { account: coa[1]._id, partner: contacts[0]?.name || '', debit: 0, credit: 10000 }
+        { account: coa[0]._id, partner: contacts[0]?.name || '', debit: 0, credit: 0 },
+        { account: coa[1]._id, partner: contacts[0]?.name || '', debit: 0, credit: 0 }
       ]);
     }
   }, [coa, contacts, items.length]);

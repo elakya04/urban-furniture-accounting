@@ -256,8 +256,8 @@ export const PurchaseOrdersPage = () => {
                         <td className="p-2.5 font-semibold text-slate-800">
                           {item.product?.productName || item.productName || item.product}
                         </td>
-                        <td className="p-2.5 text-slate-600">{item.accountName || 'Purchase Expense A/c'}</td>
-                        <td className="p-2.5 text-slate-600">{item.budgetAnalyticsName || item.budgetAnalytics || 'General'}</td>
+                        <td className="p-2.5 text-slate-600">{item.accountName || item.account?.accountName || '-'}</td>
+                        <td className="p-2.5 text-slate-600">{item.budgetAnalyticsName || item.budgetAnalytics?.name || (typeof item.budgetAnalytics === 'string' ? item.budgetAnalytics : '-')}</td>
                         <td className="p-2.5 text-center font-medium">{item.quantity}</td>
                         <td className="p-2.5 text-right">{formatCurrency(item.unitPrice)}</td>
                         <td className="p-2.5 text-right font-bold text-slate-900">{formatCurrency(item.total ?? (item.quantity * item.unitPrice))}</td>

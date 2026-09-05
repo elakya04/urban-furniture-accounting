@@ -189,7 +189,7 @@ export const VendorBillsPage = () => {
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-semibold">Default Chart of Account:</span>
-                <div className="font-semibold text-rose-700">Purchase Expense A/c</div>
+                <div className="font-semibold text-rose-700">{selectedBill.items?.[0]?.accountName || selectedBill.accountName || 'Purchase'}</div>
               </div>
             </div>
 
@@ -213,9 +213,9 @@ export const VendorBillsPage = () => {
                     {selectedBill.items?.map((item, idx) => (
                       <tr key={idx}>
                         <td className="p-2.5 text-slate-400">{idx + 1}.</td>
-                        <td className="p-2.5 font-semibold text-slate-800">{item.productName || item.product}</td>
-                        <td className="p-2.5 text-slate-600">{item.accountName || 'Purchase Expense A/c'}</td>
-                        <td className="p-2.5 text-slate-600">{item.budgetAnalyticsName || item.budgetAnalytics || 'Furniture'}</td>
+                        <td className="p-2.5 font-semibold text-slate-800">{item.productName || item.product?.productName || item.product || '-'}</td>
+                        <td className="p-2.5 text-slate-600">{item.accountName || item.account?.accountName || '-'}</td>
+                        <td className="p-2.5 text-slate-600">{item.budgetAnalyticsName || item.budgetAnalytics?.name || (typeof item.budgetAnalytics === 'string' ? item.budgetAnalytics : '-')}</td>
                         <td className="p-2.5 text-center font-medium">{item.quantity}</td>
                         <td className="p-2.5 text-right">{formatCurrency(item.unitPrice)}</td>
                         <td className="p-2.5 text-right font-bold text-slate-900">{formatCurrency(item.total)}</td>
@@ -256,7 +256,7 @@ export const VendorBillsPage = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Bill Reference:</span>
-                <span className="font-medium text-slate-800">{selectedBill.bill_reference || 'Ref Standard'}</span>
+                <span className="font-medium text-slate-800">{selectedBill.bill_reference || '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Total Bill Amount:</span>

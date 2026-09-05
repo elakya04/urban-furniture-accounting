@@ -247,7 +247,7 @@ export const PaymentsPage = () => {
               min="1"
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              placeholder="e.g. 10000"
+              placeholder="0.00"
               className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 font-semibold focus:outline-none"
             />
           </div>
@@ -258,7 +258,7 @@ export const PaymentsPage = () => {
               type="text"
               value={formData.note}
               onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-              placeholder="Payment settlement remark"
+              placeholder="Enter remarks or description"
               className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
             />
           </div>

@@ -71,17 +71,17 @@ function BrandPanel({ isSignUp }) {
         </div>
       </div>
 
-      {/* bottom stats */}
+      {/* bottom features */}
       <div className="relative z-10 grid grid-cols-2 gap-3">
         {[
-          { label: 'Invoices tracked', value: '1,240+' },
-          { label: 'Journal entries', value: '8,500+' },
-          { label: 'Contacts managed', value: '340+' },
-          { label: 'Reports generated', value: '60+' },
+          { label: 'Core System', value: 'Double Entry' },
+          { label: 'Billing & Portals', value: 'Invoices & Bills' },
+          { label: 'Access Control', value: 'Role-Based' },
+          { label: 'Compliance', value: 'Audit-Ready' },
         ].map((s) => (
           <div key={s.label} className="bg-white/5 rounded-xl p-4 border border-white/10">
-            <div className="text-xl font-bold text-white">{s.value}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
+            <div className="text-sm font-bold text-white">{s.value}</div>
+            <div className="text-xs text-slate-400 mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
@@ -140,7 +140,7 @@ function SignInForm({ onLogin }) {
           required
           value={loginId}
           onChange={(e) => setLoginId(e.target.value)}
-          placeholder="e.g. uf_admin"
+          placeholder="Enter your login ID"
           className={inputCls}
         />
       </div>
@@ -218,7 +218,7 @@ function SignUpForm({ onRegister }) {
       city: form.city,
       state: form.state,
       pincode: form.pincode,
-      profile: form.profile || 'https://via.placeholder.com/150',
+      profile: form.profile || '',
       password: form.password,
     };
 
@@ -303,7 +303,7 @@ function SignUpForm({ onRegister }) {
             required
             value={form.name}
             onChange={set('name')}
-            placeholder="e.g. Sarah Jenkins"
+            placeholder="Enter full name"
             className={inputCls}
           />
         </div>
@@ -316,7 +316,7 @@ function SignUpForm({ onRegister }) {
             maxLength={12}
             value={form.loginId}
             onChange={set('loginId')}
-            placeholder="e.g. uf_sarah"
+            placeholder="Enter login ID"
             className={inputCls}
           />
         </div>
@@ -331,7 +331,7 @@ function SignUpForm({ onRegister }) {
             required
             value={form.email}
             onChange={set('email')}
-            placeholder="sarah@example.com"
+            placeholder="Enter email address"
             className={inputCls}
           />
         </div>
@@ -342,7 +342,7 @@ function SignUpForm({ onRegister }) {
             required
             value={form.mobile}
             onChange={set('mobile')}
-            placeholder="9876543210"
+            placeholder="Enter mobile number"
             className={inputCls}
           />
         </div>
@@ -357,7 +357,7 @@ function SignUpForm({ onRegister }) {
             required
             value={form.city}
             onChange={set('city')}
-            placeholder="Mumbai"
+            placeholder="Enter city"
             className={inputCls}
           />
         </div>
@@ -368,7 +368,7 @@ function SignUpForm({ onRegister }) {
             required
             value={form.state}
             onChange={set('state')}
-            placeholder="Maharashtra"
+            placeholder="Enter state"
             className={inputCls}
           />
         </div>
@@ -379,7 +379,7 @@ function SignUpForm({ onRegister }) {
             required
             value={form.pincode}
             onChange={set('pincode')}
-            placeholder="400001"
+            placeholder="Enter pincode"
             className={inputCls}
           />
         </div>

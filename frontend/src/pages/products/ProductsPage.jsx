@@ -9,8 +9,6 @@ import { Badge } from '../../components/common/Badge';
 import { Plus, Archive, Upload, Image as ImageIcon, CheckCircle } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 
-const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400';
-
 export const ProductsPage = () => {
   const { products, addProduct, archiveProduct, updateProductInState, showToast } = useApp();
   const [view, setView] = useState('list'); // list or kanban
@@ -23,8 +21,8 @@ export const ProductsPage = () => {
     type: 'GOODS',
     salesPrice: '',
     cost: '',
-    category: 'Furniture',
-    stockQuantity: '10',
+    category: '',
+    stockQuantity: '',
     productImage: ''
   });
 
@@ -41,7 +39,7 @@ export const ProductsPage = () => {
         cost: Number(formData.cost || 0),
         category: formData.category || 'General',
         stockQuantity: Number(formData.stockQuantity || 0),
-        productImage: formData.productImage || DEFAULT_IMAGE
+        productImage: formData.productImage || ''
       };
 
       const created = await addProduct(payload);
@@ -68,8 +66,8 @@ export const ProductsPage = () => {
         type: 'GOODS',
         salesPrice: '',
         cost: '',
-        category: 'Furniture',
-        stockQuantity: '10',
+        category: '',
+        stockQuantity: '',
         productImage: ''
       });
       setImageFile(null);
@@ -83,12 +81,18 @@ export const ProductsPage = () => {
       header: 'Product Name',
       cell: (row) => (
         <div className="flex items-center gap-3">
-          <img
-            src={row.productImage || row.imageUrl || DEFAULT_IMAGE}
-            alt={row.productName}
-            className="w-10 h-10 rounded-lg object-cover border border-slate-200"
-            onError={(e) => { e.target.src = DEFAULT_IMAGE; }}
-          />
+          {(row.productImage || row.imageUrl) ? (
+            <img
+              src={row.productImage || row.imageUrl}
+              alt={row.productName}
+              className="w-10 h-10 rounded-lg object-cover border border-slate-200"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+              <ImageIcon className="w-5 h-5" />
+            </div>
+          )}
           <div>
             <div className="font-semibold text-slate-800">{row.productName}</div>
             <div className="text-xs text-slate-400">{row.category || 'General'} • {row.type}</div>
@@ -164,13 +168,19 @@ export const ProductsPage = () => {
           {products.map(prod => (
             <Card key={prod._id} className="flex flex-col justify-between space-y-4">
               <div>
-                <div className="aspect-video w-full rounded-lg overflow-hidden bg-slate-100 mb-3 border border-slate-200 relative group">
-                  <img
-                    src={prod.productImage || prod.imageUrl || DEFAULT_IMAGE}
-                    alt={prod.productName}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.target.src = DEFAULT_IMAGE; }}
-                  />
+                <div className="aspect-video w-full rounded-lg overflow-hidden bg-slate-100 mb-3 border border-slate-200 relative group flex items-center justify-center">
+                  {(prod.productImage || prod.imageUrl) ? (
+                    <img
+                      src={prod.productImage || prod.imageUrl}
+                      alt={prod.productName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                      <ImageIcon className="w-8 h-8 text-slate-300" />
+                    </div>
+                  )}
                   <button
                     onClick={() => archiveProduct(prod._id)}
                     className="absolute top-2 right-2 p-1.5 bg-white/90 backdrop-blur rounded-md shadow-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white text-slate-600"
@@ -214,7 +224,7 @@ export const ProductsPage = () => {
               required
               value={formData.productName}
               onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
-              placeholder="e.g. Ergonomic Office Chair / Cloud Accounting"
+              placeholder="Enter product name"
               className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
             />
           </div>
@@ -239,7 +249,7 @@ export const ProductsPage = () => {
                 type="text"
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                placeholder="Furniture / Services / Tech"
+                placeholder="Enter category"
                 className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
               />
             </div>
@@ -254,7 +264,7 @@ export const ProductsPage = () => {
                 min="0"
                 value={formData.salesPrice}
                 onChange={(e) => setFormData({ ...formData, salesPrice: e.target.value })}
-                placeholder="25000"
+                placeholder="0.00"
                 className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800"
               />
             </div>
@@ -265,7 +275,7 @@ export const ProductsPage = () => {
                 min="0"
                 value={formData.cost}
                 onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
-                placeholder="15000"
+                placeholder="0.00"
                 className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800"
               />
             </div>

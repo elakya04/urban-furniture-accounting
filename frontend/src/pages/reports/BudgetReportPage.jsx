@@ -57,7 +57,7 @@ export const BudgetReportPage = () => {
         return {
           id: b._id,
           name: b.name,
-          analyticAccount: typeof b.analytics_account === 'object' ? b.analytics_account : { name: b.analytics_account || 'Standard' },
+          analyticAccount: typeof b.analytics_account === 'object' ? b.analytics_account : { name: b.analytics_account || '-' },
           committed,
           achieved,
           remaining,
