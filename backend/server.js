@@ -27,6 +27,17 @@ const app = express();
 
 app.use(express.json());
 app.use(requestLogger);
+app.get("/api/health", (req, res) => {
+  const isDbConnected = mongoose.connection.readyState === 1;
+  return res.status(isDbConnected ? 200 : 503).json({
+    status: isDbConnected ? "UP" : "DOWN",
+    timestamp: new Date().toISOString(),
+    service: "urban-furniture-accounting",
+    uptime_seconds: Math.floor(process.uptime()),
+    database: isDbConnected ? "CONNECTED" : "DISCONNECTED"
+  });
+});
+
 app.use("/api/auth", authRouter);
 app.use("/api/sales-orders", salesOrderRouter);
 app.use("/api/invoices", invoiceRoutes);
@@ -40,10 +51,40 @@ app.use("/api/me", meVendorBillRoutes);
 app.use("/api/contacts", contactRouter);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/journal-entries", journalEntryRoutes);
-app.use("/api/ledger",ledgerRoutes);
-app.use("/api/budgets",budgetRoutes);
-app.use("/api/reports",reportRoutes);
-app.use("/api/dashboard",dashboardRoutes);
+app.use("/api/ledger", ledgerRoutes);
+app.use("/api/budgets", budgetRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+
+// 404 Route Not Found Handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.method} ${req.originalUrl}`
+  });
+});
+
+// Global Centralized Error Handler
+app.use((err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+  console.error(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level: "error",
+    service: "urban-furniture-backend",
+    log_type: "uncaught_exception",
+    request_id: req.id || null,
+    method: req.method,
+    url: req.originalUrl,
+    status_code: statusCode,
+    error: err.message,
+    stack: err.stack
+  }));
+
+  res.status(statusCode).json({
+    success: false,
+    message: err.message || "Internal Server Error"
+  });
+});
 
 const PORT = process.env.PORT;
 
