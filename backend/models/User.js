@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema({
     enum: ["ADMIN", "ACCOUNTANT", "CONTACT"],
     required: true
   },
-  contact_id: {
+  contact_role: {
     type: String,
     enum: ["CUSTOMER", "VENDOR", "BOTH"],
     required: function () {
