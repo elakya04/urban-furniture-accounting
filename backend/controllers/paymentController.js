@@ -1,6 +1,7 @@
 import Payment from "../models/Payment.js";
 import Invoice from "../models/Invoice.js";
 import VendorBill from "../models/VendorBill.js";
+import Contact from "../models/Contact.js";
 import Journal from "../models/Journal.js";
 import JournalEntry from "../models/JournalEntry.js";
 import COA from "../models/COA.js";
@@ -390,13 +391,23 @@ export const confirmPayment = async (req, res) => {
 
     await payment.save();
 
+    let populatedBill = bill;
+    if (payment.type === "RECEIVE") {
+      populatedBill = await Invoice.findById(bill._id).populate("sales");
+    } else {
+      populatedBill = await VendorBill.findById(bill._id)
+        .populate("vendor")
+        .populate("sales")
+        .populate("createdBy");
+    }
+
     return res.status(200).json({
       success: true,
       message: "Payment confirmed successfully",
       data: {
         payment,
         journalEntry,
-        bill
+        bill: populatedBill || bill
       }
     });
 

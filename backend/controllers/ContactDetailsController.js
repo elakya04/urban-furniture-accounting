@@ -104,7 +104,7 @@ export const getContacts = async (req, res) => {
 
     const contacts = await Contact.find(filter)
       .select("-password")
-      .populate("user", "role contact_role isActive")
+      .populate("user")
       .skip(skip)
       .limit(Number(limit));
 
