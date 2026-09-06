@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../services/api';
 import { ViewToggle } from '../../components/common/ViewToggle';
@@ -9,12 +9,50 @@ import { Badge } from '../../components/common/Badge';
 import { Plus, Archive, Upload, Image as ImageIcon, CheckCircle } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 
+// Resilient Product Image Component with Fallback to Elegant Placeholder
+const ProductImage = ({ src, alt, className = "w-10 h-10 rounded-lg object-cover border border-slate-200", iconSize = "w-5 h-5" }) => {
+  const [hasError, setHasError] = useState(false);
+
+  // If no src, or if it's the dead placeholder URL, or if failed to load
+  const isDeadPlaceholder = !src || src.includes('via.placeholder.com') || src.includes('placeholder.com');
+  const effectiveSrc = isDeadPlaceholder ? 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=600&q=80' : src;
+
+  if (hasError) {
+    return (
+      <div className={`${className} bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0`}>
+        <ImageIcon className={iconSize} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={effectiveSrc}
+      alt={alt || 'Product'}
+      className={`${className} shrink-0`}
+      loading="lazy"
+      onError={() => setHasError(true)}
+    />
+  );
+};
+
 export const ProductsPage = () => {
   const { products, addProduct, archiveProduct, updateProductInState, showToast } = useApp();
   const [view, setView] = useState('list'); // list or kanban
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    if (!imageFile) {
+      setPreviewUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(imageFile);
+    setPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [imageFile]);
 
   const [formData, setFormData] = useState({
     productName: '',
@@ -49,9 +87,11 @@ export const ProductsPage = () => {
         try {
           const uploadData = new FormData();
           uploadData.append('image', imageFile);
+          uploadData.append('profile', imageFile);
           const uploadRes = await api.uploadProductImage(created._id, uploadData);
-          if (uploadRes?.data?.productImage) {
-            updateProductInState({ ...created, productImage: uploadRes.data.productImage });
+          const newImg = uploadRes?.data?.productImage || uploadRes?.productImage || uploadRes?.data?.profile;
+          if (newImg) {
+            updateProductInState({ ...created, productImage: newImg });
             showToast('Product image uploaded successfully', 'success');
           }
         } catch (uploadErr) {
@@ -81,18 +121,12 @@ export const ProductsPage = () => {
       header: 'Product Name',
       cell: (row) => (
         <div className="flex items-center gap-3">
-          {(row.productImage || row.imageUrl) ? (
-            <img
-              src={row.productImage || row.imageUrl}
-              alt={row.productName}
-              className="w-10 h-10 rounded-lg object-cover border border-slate-200"
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
-              <ImageIcon className="w-5 h-5" />
-            </div>
-          )}
+          <ProductImage
+            src={row.productImage || row.imageUrl || row.profile}
+            alt={row.productName}
+            className="w-10 h-10 rounded-lg object-cover border border-slate-200"
+            iconSize="w-5 h-5"
+          />
           <div>
             <div className="font-semibold text-slate-800">{row.productName}</div>
             <div className="text-xs text-slate-400">{row.category || 'General'} • {row.type}</div>
@@ -169,18 +203,12 @@ export const ProductsPage = () => {
             <Card key={prod._id} className="flex flex-col justify-between space-y-4">
               <div>
                 <div className="aspect-video w-full rounded-lg overflow-hidden bg-slate-100 mb-3 border border-slate-200 relative group flex items-center justify-center">
-                  {(prod.productImage || prod.imageUrl) ? (
-                    <img
-                      src={prod.productImage || prod.imageUrl}
-                      alt={prod.productName}
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300">
-                      <ImageIcon className="w-8 h-8 text-slate-300" />
-                    </div>
-                  )}
+                  <ProductImage
+                    src={prod.productImage || prod.imageUrl || prod.profile}
+                    alt={prod.productName}
+                    className="w-full h-full object-cover"
+                    iconSize="w-8 h-8"
+                  />
                   <button
                     onClick={() => archiveProduct(prod._id)}
                     className="absolute top-2 right-2 p-1.5 bg-white/90 backdrop-blur rounded-md shadow-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white text-slate-600"
@@ -322,6 +350,24 @@ export const ProductsPage = () => {
                 </div>
               </div>
             </div>
+
+            {/* Live Preview */}
+            {(previewUrl || formData.productImage) && (
+              <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200 mt-2">
+                <ProductImage
+                  src={previewUrl || formData.productImage}
+                  alt="Preview"
+                  className="w-12 h-12 rounded-lg object-cover border border-slate-200"
+                  iconSize="w-5 h-5"
+                />
+                <div className="text-xs text-slate-600">
+                  <span className="font-semibold text-slate-800 block">Preview Ready</span>
+                  <p className="text-[11px] text-slate-400">
+                    {previewUrl ? 'Selected local image file' : 'External image link'}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">

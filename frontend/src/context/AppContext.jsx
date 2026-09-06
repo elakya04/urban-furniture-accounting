@@ -180,6 +180,19 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Modular Fetcher for Sales Orders
+  const fetchSalesOrders = async () => {
+    try {
+      const data = await api.getSalesOrders();
+      const list = data?.data || (Array.isArray(data) ? data : []);
+      setSalesOrders(list);
+      return list;
+    } catch (err) {
+      console.warn('[APP CONTEXT] Failed to load sales orders from API:', err.message);
+      return [];
+    }
+  };
+
   // Auto-fetch data from backend API ONLY after user is authenticated based on their role
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -289,13 +302,7 @@ export const AppProvider = ({ children }) => {
       }
 
       // Sales Orders
-      try {
-        const data = await api.getSalesOrders();
-        const list = data?.data || (Array.isArray(data) ? data : []);
-        setSalesOrders(list);
-      } catch (err) {
-        console.warn('[APP CONTEXT] Failed to load sales orders from API:', err.message);
-      }
+      await fetchSalesOrders();
 
       // Invoices
       try {
@@ -905,6 +912,8 @@ export const AppProvider = ({ children }) => {
         confirmSalesOrder,
         cancelSalesOrder,
         createInvoiceFromSO,
+        fetchSalesOrders,
+        setSalesOrders,
         confirmInvoice,
         cancelInvoice,
         addPurchaseOrder,

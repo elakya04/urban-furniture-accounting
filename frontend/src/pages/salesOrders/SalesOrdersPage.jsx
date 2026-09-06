@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Table } from '../../components/common/Table';
 import { Modal } from '../../components/common/Modal';
@@ -9,22 +9,31 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 
 export const SalesOrdersPage = () => {
   const {
-    salesOrders,
-    contacts,
-    products,
-    coa,
-    analyticAccounts,
+    salesOrders = [],
+    contacts = [],
+    products = [],
+    coa = [],
+    analyticAccounts = [],
     addSalesOrder,
     confirmSalesOrder,
     cancelSalesOrder,
-    createInvoiceFromSO
+    createInvoiceFromSO,
+    fetchSalesOrders
   } = useApp();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedSO, setSelectedSO] = useState(null);
 
+  // Auto-fetch sales orders on mount
+  useEffect(() => {
+    if (typeof fetchSalesOrders === 'function') {
+      fetchSalesOrders();
+    }
+  }, []);
+
   // Filter strictly for Customer contacts (User.role === 'CONTACT' && User.contact_role === 'CUSTOMER' / 'BOTH')
-  const customerContacts = contacts.filter(c => {
+  const customerContacts = (contacts || []).filter(c => {
+    if (!c) return false;
     if (c.userType === 'ADMIN' || c.userType === 'ACCOUNTANT') return false;
     const role = c.user?.contact_role || c.contactRole;
     if (role === 'CUSTOMER' || role === 'BOTH') return true;
@@ -45,13 +54,31 @@ export const SalesOrdersPage = () => {
     {
       product: products[0]?._id || '',
       productName: products[0]?.productName || '',
-      account: coa.find(c => c.accountName.includes('Sales'))?._id || coa[0]?._id,
+      account: (coa || []).find(c => c?.accountName?.toLowerCase().includes('sales'))?._id || coa[0]?._id || '',
       budgetAnalytics: analyticAccounts[0]?._id || '',
       quantity: 1,
       unitPrice: products[0]?.salesPrice || 0,
       total: products[0]?.salesPrice || 0
     }
   ]);
+
+  // Synchronize initial line item once products and COA are available
+  useEffect(() => {
+    if (items.length === 1 && !items[0].product && products.length > 0) {
+      const defaultProd = products[0];
+      const defaultCOA = (coa || []).find(c => c?.accountName?.toLowerCase().includes('sales'))?._id || coa[0]?._id || '';
+      const defaultAnalytic = analyticAccounts[0]?._id || '';
+      setItems([{
+        product: defaultProd._id,
+        productName: defaultProd.productName,
+        account: defaultCOA,
+        budgetAnalytics: defaultAnalytic,
+        quantity: 1,
+        unitPrice: defaultProd.salesPrice || 0,
+        total: defaultProd.salesPrice || 0
+      }]);
+    }
+  }, [products, coa, analyticAccounts]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
