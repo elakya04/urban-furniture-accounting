@@ -231,20 +231,11 @@ export const AppProvider = ({ children }) => {
         // 3. Customer Invoices (for Customers or Both)
         if (contactRole === 'CUSTOMER' || contactRole === 'BOTH' || !contactRole) {
           try {
-            const data = await api.getMyInvoices();
+            const data = await api.getInvoices();
             const list = data?.data || (Array.isArray(data) ? data : []);
-            if (list && list.length >= 0) {
-              setInvoices(list);
-            } else {
-              const fallback = await api.getInvoices();
-              setInvoices(fallback?.data || (Array.isArray(fallback) ? fallback : []));
-            }
+            setInvoices(list);
           } catch (err) {
             console.warn('[APP CONTEXT] Failed to load invoices from API:', err.message);
-            try {
-              const fallback = await api.getInvoices();
-              setInvoices(fallback?.data || (Array.isArray(fallback) ? fallback : []));
-            } catch (_) {}
           }
         }
 
@@ -291,7 +282,7 @@ export const AppProvider = ({ children }) => {
       // Contacts
       try {
         const res = await api.getContacts();
-        const list = res?.data || (Array.isArray(res) ? res : []);
+        const list = res?.contacts || res?.data || (Array.isArray(res) ? res : []);
         setContacts(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load contacts from API:', err.message);
@@ -512,13 +503,8 @@ export const AppProvider = ({ children }) => {
     try {
       const items = (data.items || []).map(item => ({
         product: item.product?._id || item.product,
-        account: item.account?._id || item.account,
-        accountName: item.accountName,
-        budgetAnalytics: item.budgetAnalytics?._id || item.budgetAnalytics,
-        budgetAnalyticsName: item.budgetAnalyticsName,
         quantity: Number(item.quantity) || 1,
         unitPrice: Number(item.unitPrice) || 0,
-        total: Number(item.total) || (Number(item.quantity || 1) * Number(item.unitPrice || 0)),
         tax: Number(item.tax) || 0
       }));
 
@@ -711,7 +697,7 @@ export const AppProvider = ({ children }) => {
         setPayments(prev => [fallback, ...prev]);
       }
 
-      // Update local invoice or vendor bill state
+      // Update local invoice or vendor bill state as fallback
       if (payload.invoiceBill) {
         setInvoices(prev => prev.map(inv => {
           if (inv._id === payload.invoiceBill) {

@@ -11,7 +11,7 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 import { Plus, PieChart, CheckCircle, RotateCcw, Link as LinkIcon, ExternalLink, ArrowRight, User, Calendar, Tag } from 'lucide-react';
 
 export const BudgetsPage = () => {
-  const { budgets, analyticAccounts, invoices, vendorBills, users, addBudget, confirmBudget, reviseBudget } = useApp();
+  const { budgets, analyticAccounts, invoices, vendorBills, purchaseOrders, users, addBudget, confirmBudget, reviseBudget } = useApp();
   const { isContact, isAdmin, isAccountant } = useAuth();
   const [view, setView] = useState('list'); // list or kanban
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -100,43 +100,55 @@ export const BudgetsPage = () => {
     const analyticId = String(typeof budget.analytics_account === 'object' ? budget.analytics_account?._id : (budget.analytics_account || '')).toLowerCase().trim();
     const analyticName = String(typeof budget.analytics_account === 'object' ? budget.analytics_account?.name : (getAnalyticName(budget.analytics_account) || '')).toLowerCase().trim();
     const start = budget.start_date ? new Date(budget.start_date) : null;
-    const end = budget.end_date ? new Date(budget.end_date) : null;
+    const startTime = start ? start.getTime() : null;
 
     if (budget.type === 'INCOME') {
       return invoices.filter(inv => {
         const d = new Date(inv.invoice_date || inv.createdAt);
-        const isDateValid = (!start || isNaN(start) || d >= start) && (!end || isNaN(end) || d <= end);
+        const isDateValid = (!startTime || isNaN(startTime) || (d.getTime() + 24 * 3600 * 1000) >= startTime);
         const isStatusValid = ['POSTED', 'PAID', 'CONFIRMED', 'DUE'].includes(String(inv.status || '').toUpperCase());
 
         if (isDateValid && isStatusValid) {
           const items = (inv.items && inv.items.length > 0) ? inv.items : (inv.sales?.items || []);
-          if (items.length === 0) return true;
           return items.some(i => {
             const itemAnalyticId = String(typeof i.budgetAnalytics === 'object' ? i.budgetAnalytics?._id : (i.budgetAnalytics || '')).toLowerCase().trim();
             const itemAnalyticName = String(typeof i.budgetAnalytics === 'object' ? i.budgetAnalytics?.name : (i.budgetAnalyticsName || i.budgetAnalytics || '')).toLowerCase().trim();
-            return (itemAnalyticId && (itemAnalyticId === analyticId || itemAnalyticId.includes(analyticId))) ||
-                   (itemAnalyticName && (itemAnalyticName === analyticName || itemAnalyticName.includes(analyticName))) ||
-                   !i.budgetAnalytics;
+            return (itemAnalyticId && (itemAnalyticId === analyticId || itemAnalyticId.includes(analyticId) || analyticId.includes(itemAnalyticId))) ||
+              (itemAnalyticName && (itemAnalyticName === analyticName || itemAnalyticName.includes(analyticName) || analyticName.includes(itemAnalyticName)));
           });
         }
         return false;
       });
     } else {
-      return vendorBills.filter(bill => {
-        const d = new Date(bill.bill_date || bill.createdAt);
-        const isDateValid = (!start || isNaN(start) || d >= start) && (!end || isNaN(end) || d <= end);
-        const isStatusValid = ['POSTED', 'PAID', 'CONFIRMED', 'DUE'].includes(String(bill.status || '').toUpperCase());
+      const activePOs = (purchaseOrders || []).filter(po => {
+        const poIdStr = String(po._id || po.id || '');
+        return !vendorBills.some(vb => {
+          const vbSalesId = String(typeof vb.sales === 'object' ? (vb.sales?._id || '') : (vb.sales || ''));
+          return vbSalesId && vbSalesId === poIdStr;
+        });
+      });
+      const allExpenseDocs = [...vendorBills, ...activePOs];
+
+      return allExpenseDocs.filter(bill => {
+        const d = new Date(bill.bill_date || bill.date || bill.createdAt);
+        const isDateValid = (!startTime || isNaN(startTime) || (d.getTime() + 24 * 3600 * 1000) >= startTime);
+        const isStatusValid = ['POSTED', 'PAID', 'CONFIRMED', 'DUE', 'DRAFT'].includes(String(bill.status || '').toUpperCase());
 
         if (isDateValid && isStatusValid) {
           const items = (bill.items && bill.items.length > 0) ? bill.items : (bill.sales?.items || []);
-          if (items.length === 0) return true;
-          return items.some(i => {
+          const matchFound = items.some(i => {
             const itemAnalyticId = String(typeof i.budgetAnalytics === 'object' ? i.budgetAnalytics?._id : (i.budgetAnalytics || '')).toLowerCase().trim();
             const itemAnalyticName = String(typeof i.budgetAnalytics === 'object' ? i.budgetAnalytics?.name : (i.budgetAnalyticsName || i.budgetAnalytics || '')).toLowerCase().trim();
-            return (itemAnalyticId && (itemAnalyticId === analyticId || itemAnalyticId.includes(analyticId))) ||
-                   (itemAnalyticName && (itemAnalyticName === analyticName || itemAnalyticName.includes(analyticName))) ||
-                   !i.budgetAnalytics;
+            return (itemAnalyticId && (itemAnalyticId === analyticId || itemAnalyticId.includes(analyticId) || analyticId.includes(itemAnalyticId))) ||
+              (itemAnalyticName && (itemAnalyticName === analyticName || itemAnalyticName.includes(analyticName) || analyticName.includes(itemAnalyticName)));
           });
+
+          if (matchFound) return true;
+
+          const billAnalyticId = String(typeof bill.analytics_account === 'object' ? bill.analytics_account?._id : (bill.analytics_account || '')).toLowerCase().trim();
+          const salesAnalyticId = String(typeof bill.sales?.analytics_account === 'object' ? bill.sales?.analytics_account?._id : (bill.sales?.analytics_account || '')).toLowerCase().trim();
+          return (billAnalyticId && (billAnalyticId === analyticId || billAnalyticId.includes(analyticId) || analyticId.includes(billAnalyticId))) ||
+            (salesAnalyticId && (salesAnalyticId === analyticId || salesAnalyticId.includes(analyticId) || analyticId.includes(salesAnalyticId)));
         }
         return false;
       });
@@ -198,7 +210,7 @@ export const BudgetsPage = () => {
       header: 'Achieved Amount',
       cell: (row) => {
         if (row.status !== 'CONFIRMED' && row.status !== 'REVISED') return <span className="text-slate-400 text-xs">Only at Confirmed</span>;
-        const { achievedAmount } = computeBudgetMetrics(row, invoices, vendorBills);
+        const { achievedAmount } = computeBudgetMetrics(row, invoices, vendorBills, purchaseOrders);
         return (
           <button
             onClick={(e) => { e.stopPropagation(); setAchievedListModalBudget(row); }}
@@ -215,7 +227,7 @@ export const BudgetsPage = () => {
       header: 'Achieved %',
       cell: (row) => {
         if (row.status !== 'CONFIRMED' && row.status !== 'REVISED') return '-';
-        const { achievedPercent } = computeBudgetMetrics(row, invoices, vendorBills);
+        const { achievedPercent } = computeBudgetMetrics(row, invoices, vendorBills, purchaseOrders);
         return (
           <div className="w-28 space-y-1">
             <div className="flex justify-between text-xs font-bold text-slate-800">
@@ -298,7 +310,7 @@ export const BudgetsPage = () => {
       {view === 'kanban' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {displayBudgets.map(budget => {
-            const { achievedAmount, achievedPercent, amountToAchieve } = computeBudgetMetrics(budget, invoices, vendorBills);
+            const { achievedAmount, achievedPercent, amountToAchieve } = computeBudgetMetrics(budget, invoices, vendorBills, purchaseOrders);
             const isConfirmed = budget.status === 'CONFIRMED' || budget.status === 'REVISED';
 
             return (
@@ -360,7 +372,7 @@ export const BudgetsPage = () => {
       {/* Full Odoo Style Form View Modal of Budget */}
       <Modal isOpen={Boolean(selectedBudgetForForm)} onClose={() => setSelectedBudgetForForm(null)} title={`Form View of Budget: ${selectedBudgetForForm?.name || ''}`} maxWidth="max-w-4xl">
         {selectedBudgetForForm && (() => {
-          const { achievedAmount, achievedPercent, amountToAchieve } = computeBudgetMetrics(selectedBudgetForForm, invoices, vendorBills);
+          const { achievedAmount, achievedPercent, amountToAchieve } = computeBudgetMetrics(selectedBudgetForForm, invoices, vendorBills, purchaseOrders);
           const revisedChild = selectedBudgetForForm.revisedWith ? budgets.find(b => b._id === selectedBudgetForForm.revisedWith) : null;
           const originalParent = selectedBudgetForForm.revisionOf ? budgets.find(b => b._id === selectedBudgetForForm.revisionOf) : null;
 
