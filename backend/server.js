@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+import "dotenv/config";
 import mongoose from "mongoose";
 import express from "express";
 import authRouter from "./routes/authRoutes.js";
@@ -21,7 +21,7 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 import requestLogger from "./middleware/logger.js";
 
 
-dotenv.config();
+// dotenv.config();
 
 const app = express();
 
