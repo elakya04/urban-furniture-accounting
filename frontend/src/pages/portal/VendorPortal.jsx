@@ -12,8 +12,13 @@ export const VendorPortal = () => {
   const { currentUser } = useAuth();
 
   const myBills = vendorBills.filter(bill => {
+    if (!bill) return false;
     if (currentUser?.role === 'CONTACT') {
-      return bill.vendorName.toLowerCase().includes(currentUser.name.toLowerCase()) || bill.vendorName.includes('Rahul');
+      const vName = bill.vendorName || (typeof bill.vendor === 'object' ? bill.vendor?.name : null);
+      if (vName && currentUser?.name) {
+        return vName.toLowerCase().includes(currentUser.name.toLowerCase());
+      }
+      return true;
     }
     return true;
   });
@@ -28,8 +33,12 @@ export const VendorPortal = () => {
         </div>
       )
     },
-    { header: 'Bill Ref', accessor: 'bill_reference' },
-    { header: 'Bill Date', cell: (row) => formatDate(row.bill_date) },
+    {
+      header: 'Bill Ref',
+      accessor: 'bill_reference',
+      cell: (row) => row.bill_reference || (row.sales ? (row.sales.order_number || (typeof row.sales === 'string' ? row.sales : '-')) : '-')
+    },
+    { header: 'Bill Date', cell: (row) => formatDate(row.bill_date || row.createdAt) },
     { header: 'Total Amount', cell: (row) => formatCurrency(row.total) },
     { header: 'Amount Due', cell: (row) => <span className="font-bold text-slate-900">{formatCurrency(row.amount_due ?? row.total)}</span> },
     { header: 'Status', cell: (row) => <Badge status={row.status} /> },
@@ -37,8 +46,12 @@ export const VendorPortal = () => {
       header: 'PDF',
       cell: (row) => (
         <button
-          onClick={() => generateInvoicePDF(row, row.vendorName)}
-          className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-md"
+          onClick={() => {
+            const vName = row.vendorName || (typeof row.vendor === 'object' ? row.vendor?.name : null) || currentUser?.name || 'Vendor';
+            generateInvoicePDF(row, vName);
+          }}
+          className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-md cursor-pointer"
+          title="Print / Save PDF"
         >
           <Printer className="w-4 h-4" />
         </button>

@@ -31,8 +31,12 @@ export async function register(req, res) {
         timestamp: new Date().toISOString()
     }));
 
+    const profileImageToUse = profile && typeof profile === 'string' && profile.trim().length > 0 
+        ? profile 
+        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150';
+
     if (!name || !email || !mobile || !password || !userType ||
-        !city || !state || !pincode || !profile || !loginId) {
+        !city || !state || !pincode || !loginId) {
 
         console.log(JSON.stringify({
             level: "warn",
@@ -122,7 +126,7 @@ export async function register(req, res) {
                 city,
                 state,
                 pincode,
-                profileImage: profile,
+                profileImage: profileImageToUse,
                 password: hashedPassword,
                 user: user._id
             });
@@ -138,7 +142,7 @@ export async function register(req, res) {
                 city,
                 state,
                 pincode,
-                profileImage: profile,
+                profileImage: profileImageToUse,
                 password: hashedPassword
             });
         }

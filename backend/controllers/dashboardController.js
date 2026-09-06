@@ -80,10 +80,28 @@ export const getDashboardSummary = async (req, res) => {
       0
     );
 
-    const achievedBudget = budgets.reduce(
-      (sum, budget) => sum + budget.achieved_amount,
-      0
-    );
+    let achievedBudget = 0;
+    budgets.forEach(b => {
+      const analyticId = String(b.analytics_account || '').toLowerCase().trim();
+      const start = b.start_date ? new Date(b.start_date) : null;
+      const end = b.end_date ? new Date(b.end_date) : null;
+
+      if (b.type === 'INCOME') {
+        invoices.forEach(inv => {
+          const d = new Date(inv.invoice_date || inv.createdAt);
+          if ((!start || d >= start) && (!end || d <= end) && ['POSTED', 'PAID', 'CONFIRMED', 'DUE'].includes(String(inv.status).toUpperCase())) {
+            achievedBudget += Number(inv.total_amount || inv.total || 0);
+          }
+        });
+      } else {
+        vendorBills.forEach(bill => {
+          const d = new Date(bill.bill_date || bill.createdAt);
+          if ((!start || d >= start) && (!end || d <= end) && ['POSTED', 'PAID', 'CONFIRMED', 'DUE'].includes(String(bill.status).toUpperCase())) {
+            achievedBudget += Number(bill.total || bill.amount_paid || 0);
+          }
+        });
+      }
+    });
 
     const remainingBudget = totalBudget - achievedBudget;
 

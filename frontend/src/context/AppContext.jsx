@@ -1,20 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import {
-  initialUsers,
-  initialContacts,
-  initialProducts,
-  initialCOA,
-  initialJournals,
-  initialAnalyticsAccounts,
-  initialBudgets,
-  initialSalesOrders,
-  initialInvoices,
-  initialPurchaseOrders,
-  initialVendorBills,
-  initialPayments,
-  initialJournalEntries,
-  initialAuditLogs
-} from '../services/mockData';
 import { validateJournalEntryBalance, computeBudgetMetrics } from '../utils/accountingMath';
 import { api } from '../services/api';
 import { useAuth } from './AuthContext';
@@ -22,21 +6,21 @@ import { useAuth } from './AuthContext';
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-  const { isAuthenticated } = useAuth() || {};
-  const [users, setUsers] = useState(initialUsers);
-  const [contacts, setContacts] = useState(initialContacts);
-  const [products, setProducts] = useState(initialProducts);
-  const [coa, setCOA] = useState(initialCOA);
-  const [journals, setJournals] = useState(initialJournals);
-  const [analyticAccounts, setAnalyticAccounts] = useState(initialAnalyticsAccounts);
-  const [budgets, setBudgets] = useState(initialBudgets);
-  const [salesOrders, setSalesOrders] = useState(initialSalesOrders);
-  const [invoices, setInvoices] = useState(initialInvoices);
-  const [purchaseOrders, setPurchaseOrders] = useState(initialPurchaseOrders);
-  const [vendorBills, setVendorBills] = useState(initialVendorBills);
-  const [payments, setPayments] = useState(initialPayments);
-  const [journalEntries, setJournalEntries] = useState(initialJournalEntries);
-  const [auditLogs, setAuditLogs] = useState(initialAuditLogs);
+  const { isAuthenticated, currentUser, userRole } = useAuth() || {};
+  const [users, setUsers] = useState([]);
+  const [contacts, setContacts] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [coa, setCOA] = useState([]);
+  const [journals, setJournals] = useState([]);
+  const [analyticAccounts, setAnalyticAccounts] = useState([]);
+  const [budgets, setBudgets] = useState([]);
+  const [salesOrders, setSalesOrders] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [vendorBills, setVendorBills] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [journalEntries, setJournalEntries] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [toasts, setToasts] = useState([]);
 
   // Toast notification system
@@ -196,11 +180,82 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Auto-fetch all master data & documents from backend API ONLY after user is authenticated
+  // Modular Fetcher for Sales Orders
+  const fetchSalesOrders = async () => {
+    try {
+      const data = await api.getSalesOrders();
+      const list = data?.data || (Array.isArray(data) ? data : []);
+      setSalesOrders(list);
+      return list;
+    } catch (err) {
+      console.warn('[APP CONTEXT] Failed to load sales orders from API:', err.message);
+      return [];
+    }
+  };
+
+  // Auto-fetch data from backend API ONLY after user is authenticated based on their role
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    const role = (currentUser?.userType || currentUser?.role || userRole || localStorage.getItem('uf_role') || '').toUpperCase();
+    let contactRole = (
+      currentUser?.contactRole ||
+      currentUser?.contact_role ||
+      currentUser?.contact_id ||
+      currentUser?.user?.contact_role ||
+      ''
+    ).toUpperCase();
+
+    if (!contactRole) {
+      try {
+        const token = localStorage.getItem('uf_token');
+        if (token && token.includes('.')) {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          if (payload?.contactRole) contactRole = payload.contactRole.toUpperCase();
+        }
+      } catch (_) { }
+    }
+
+    const isContactUser = role === 'CONTACT';
+
     const loadAllAppData = async () => {
+      if (isContactUser) {
+        // CONTACT (Vendor or Customer Portal): Only fetch permitted self-service data
+        // 1. Products catalog (viewable by all authenticated users)
+        try {
+          const res = await api.getProducts();
+          const list = res?.data || (Array.isArray(res) ? res : []);
+          setProducts(list);
+        } catch (err) {
+          console.warn('[APP CONTEXT] Failed to load products from API:', err.message);
+        }
+
+        // 2. Self-service Vendor Bills (for Vendors or Both)
+        if (contactRole === 'VENDOR' || contactRole === 'BOTH' || !contactRole) {
+          try {
+            const res = await api.getMyVendorBills();
+            const list = res?.data || (Array.isArray(res) ? res : []);
+            setVendorBills(list);
+          } catch (err) {
+            console.warn('[APP CONTEXT] Failed to load vendor bills from API:', err.message);
+          }
+        }
+
+        // 3. Customer Invoices (for Customers or Both)
+        if (contactRole === 'CUSTOMER' || contactRole === 'BOTH' || !contactRole) {
+          try {
+            const data = await api.getInvoices();
+            const list = data?.data || (Array.isArray(data) ? data : []);
+            setInvoices(list);
+          } catch (err) {
+            console.warn('[APP CONTEXT] Failed to load invoices from API:', err.message);
+          }
+        }
+
+        return;
+      }
+
+      // ADMIN & ACCOUNTANT: Fetch all internal accounting & master data
       // Products
       try {
         const res = await api.getProducts();
@@ -240,20 +295,14 @@ export const AppProvider = ({ children }) => {
       // Contacts
       try {
         const res = await api.getContacts();
-        const list = res?.data || (Array.isArray(res) ? res : []);
+        const list = res?.contacts || res?.data || (Array.isArray(res) ? res : []);
         setContacts(list);
       } catch (err) {
         console.warn('[APP CONTEXT] Failed to load contacts from API:', err.message);
       }
 
       // Sales Orders
-      try {
-        const data = await api.getSalesOrders();
-        const list = data?.data || (Array.isArray(data) ? data : []);
-        setSalesOrders(list);
-      } catch (err) {
-        console.warn('[APP CONTEXT] Failed to load sales orders from API:', err.message);
-      }
+      await fetchSalesOrders();
 
       // Invoices
       try {
@@ -311,7 +360,7 @@ export const AppProvider = ({ children }) => {
     };
 
     loadAllAppData();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUser?.role, currentUser?.userType, currentUser?.contactRole]);
 
   // Sales Orders & Invoices Workflow
   const addSalesOrder = async (data) => {
@@ -550,7 +599,19 @@ export const AppProvider = ({ children }) => {
       const res = await api.confirmVendorBill(billId);
       const updatedBill = res?.data;
 
-      setVendorBills(prev => prev.map(b => b._id === billId ? (updatedBill || { ...b, status: 'DUE' }) : b));
+      setVendorBills(prev => prev.map(b => {
+        if (b._id === billId) {
+          const mergedVendor = (updatedBill?.vendor && typeof updatedBill.vendor === 'object' && updatedBill.vendor.name)
+            ? updatedBill.vendor
+            : (b.vendor && typeof b.vendor === 'object' ? b.vendor : updatedBill?.vendor || b.vendor);
+          return {
+            ...b,
+            ...(updatedBill || { status: 'DUE' }),
+            vendor: mergedVendor
+          };
+        }
+        return b;
+      }));
 
       const bill = vendorBills.find(b => b._id === billId) || updatedBill;
       const billTotal = Number(bill?.total || 0);
@@ -611,10 +672,29 @@ export const AppProvider = ({ children }) => {
       if (created?._id) {
         try {
           const confirmRes = await api.confirmPayment(created._id);
-          if (confirmRes?.data) {
-            setPayments(prev => [confirmRes.data, ...prev]);
-          } else {
-            setPayments(prev => [{ ...created, status: 'CONFIRM' }, ...prev]);
+          const confirmedPayment = confirmRes?.data?.payment || (confirmRes?.data?._id ? confirmRes.data : { ...created, status: 'CONFIRM' });
+          const updatedBill = confirmRes?.data?.bill;
+
+          setPayments(prev => [confirmedPayment, ...prev]);
+
+          if (updatedBill?._id) {
+            if (payload.vendorbill) {
+              setVendorBills(prev => prev.map(b => {
+                if (b._id === updatedBill._id) {
+                  const mergedVendor = (updatedBill.vendor && typeof updatedBill.vendor === 'object' && updatedBill.vendor.name)
+                    ? updatedBill.vendor
+                    : (b.vendor && typeof b.vendor === 'object' ? b.vendor : updatedBill.vendor || b.vendor);
+                  return {
+                    ...b,
+                    ...updatedBill,
+                    vendor: mergedVendor
+                  };
+                }
+                return b;
+              }));
+            } else if (payload.invoiceBill) {
+              setInvoices(prev => prev.map(inv => inv._id === updatedBill._id ? { ...inv, ...updatedBill, customerName: updatedBill.customerName || inv.customerName } : inv));
+            }
           }
         } catch (confErr) {
           setPayments(prev => [created, ...prev]);
@@ -624,12 +704,12 @@ export const AppProvider = ({ children }) => {
         setPayments(prev => [fallback, ...prev]);
       }
 
-      // Update local invoice or vendor bill state
+      // Update local invoice or vendor bill state as fallback
       if (payload.invoiceBill) {
         setInvoices(prev => prev.map(inv => {
           if (inv._id === payload.invoiceBill) {
             const newPaid = Number(inv.amount_paid || 0) + payload.amount;
-            const newDue = Math.max(0, Number(inv.total_amount) - newPaid);
+            const newDue = Math.max(0, Number(inv.total_amount ?? inv.total ?? 0) - newPaid);
             return { ...inv, amount_paid: newPaid, amount_due: newDue, status: newDue === 0 ? 'PAID' : 'DUE' };
           }
           return inv;
@@ -640,7 +720,7 @@ export const AppProvider = ({ children }) => {
         setVendorBills(prev => prev.map(bill => {
           if (bill._id === payload.vendorbill) {
             const newPaid = Number(bill.amount_paid || 0) + payload.amount;
-            const newDue = Math.max(0, Number(bill.total) - newPaid);
+            const newDue = Math.max(0, Number(bill.total || 0) - newPaid);
             return { ...bill, amount_paid: newPaid, amount_due: newDue, status: newDue === 0 ? 'PAID' : 'DUE' };
           }
           return bill;
@@ -832,6 +912,8 @@ export const AppProvider = ({ children }) => {
         confirmSalesOrder,
         cancelSalesOrder,
         createInvoiceFromSO,
+        fetchSalesOrders,
+        setSalesOrders,
         confirmInvoice,
         cancelInvoice,
         addPurchaseOrder,

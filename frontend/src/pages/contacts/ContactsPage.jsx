@@ -18,10 +18,10 @@ export const ContactsPage = () => {
     userType: 'CUSTOMER',
     email: '',
     mobile: '',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    pincode: '400001',
-    password: 'password123'
+    city: '',
+    state: '',
+    pincode: '',
+    password: ''
   });
 
   const filteredContacts = contacts.filter(c => {
@@ -37,14 +37,13 @@ export const ContactsPage = () => {
       name: formData.name,
       userType: formData.userType,
       email: formData.email,
-      mobile: Number(formData.mobile || 9876543210),
+      mobile: formData.mobile ? Number(formData.mobile) : undefined,
       address: { city: formData.city, state: formData.state, pincode: formData.pincode },
-      password: formData.password,
-      profileImage: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+      password: formData.password || undefined
     });
 
     setIsAddModalOpen(false);
-    setFormData({ name: '', userType: 'CUSTOMER', email: '', mobile: '', city: 'Mumbai', state: 'Maharashtra', pincode: '400001', password: 'password123' });
+    setFormData({ name: '', userType: 'CUSTOMER', email: '', mobile: '', city: '', state: '', pincode: '', password: '' });
   };
 
   const contactInvoices = selectedContact ? invoices.filter(i => i.customerName === selectedContact.name) : [];
@@ -55,7 +54,13 @@ export const ContactsPage = () => {
       header: 'Contact Name',
       cell: (row) => (
         <div className="flex items-center gap-3">
-          <img src={row.profileImage} alt="" className="w-8 h-8 rounded-full object-cover border border-slate-200" />
+          {row.profileImage ? (
+            <img src={row.profileImage} alt="" className="w-8 h-8 rounded-full object-cover border border-slate-200" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs border border-slate-200">
+              {row.name ? row.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
+            </div>
+          )}
           <div>
             <div className="font-semibold text-slate-800">{row.name}</div>
             <div className="text-xs text-slate-400">{row.email}</div>
@@ -123,7 +128,7 @@ export const ContactsPage = () => {
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g. Mr Rahul / Urban Woodcrafts"
+              placeholder="Enter contact or company name"
               className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
             />
           </div>
@@ -149,7 +154,7 @@ export const ContactsPage = () => {
                 required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="contact@example.com"
+                placeholder="Enter email address"
                 className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
               />
             </div>
@@ -212,7 +217,13 @@ export const ContactsPage = () => {
         {selectedContact && (
           <div className="space-y-6">
             <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <img src={selectedContact.profileImage} alt="" className="w-14 h-14 rounded-full object-cover" />
+              {selectedContact.profileImage ? (
+                <img src={selectedContact.profileImage} alt="" className="w-14 h-14 rounded-full object-cover" />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-lg">
+                  {selectedContact.name ? selectedContact.name.charAt(0).toUpperCase() : <User className="w-6 h-6" />}
+                </div>
+              )}
               <div>
                 <h4 className="text-base font-bold text-slate-800">{selectedContact.name}</h4>
                 <div className="flex items-center gap-2 mt-1">

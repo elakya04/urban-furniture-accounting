@@ -381,17 +381,19 @@ export const createVendorBillFromPurchaseOrder = async (req, res) => {
       });
     }
 
-    const {
+    let {
       bill_number,
       due_date,
       bill_date
-    } = req.body;
+    } = req.body || {};
 
-    if (!bill_number || !due_date) {
-      return res.status(400).json({
-        success: false,
-        message: "Bill number and due date are required"
-      });
+    if (!bill_number) {
+      const count = await VendorBill.countDocuments();
+      bill_number = `Bill/2026/${String(count + 1).padStart(4, "0")}`;
+    }
+
+    if (!due_date) {
+      due_date = new Date(Date.now() + 15 * 86400000);
     }
 
     const vendorBill = await VendorBill.create({
@@ -403,6 +405,7 @@ export const createVendorBillFromPurchaseOrder = async (req, res) => {
       amount_paid: 0,
       total: purchaseOrder.total_amount,
       vendor: purchaseOrder.vendor,
+      items: purchaseOrder.items || [],
       createdBy: req.user?._id,
       status: "DUE"
     });

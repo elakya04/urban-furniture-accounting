@@ -1,6 +1,7 @@
 import VendorBill from "../models/VendorBill.js";
 import PurchaseOrder from "../models/PurchaseOrder.js";
 import Payment from "../models/Payment.js";
+import Contact from "../models/Contact.js";
 
 
 // GET /api/vendor-bills
@@ -90,10 +91,15 @@ export const confirmVendorBill = async (req, res) => {
 
     await vendorBill.save();
 
+    const populatedBill = await VendorBill.findById(vendorBill._id)
+      .populate("vendor")
+      .populate("sales")
+      .populate("createdBy");
+
     return res.status(200).json({
       success: true,
       message: "Vendor bill confirmed successfully",
-      data: vendorBill
+      data: populatedBill || vendorBill
     });
 
   } catch (error) {
@@ -142,10 +148,15 @@ export const cancelVendorBill = async (req, res) => {
 
     await vendorBill.save();
 
+    const populatedBill = await VendorBill.findById(vendorBill._id)
+      .populate("vendor")
+      .populate("sales")
+      .populate("createdBy");
+
     return res.status(200).json({
       success: true,
       message: "Vendor bill cancelled successfully",
-      data: vendorBill
+      data: populatedBill || vendorBill
     });
 
   } catch (error) {
@@ -306,6 +317,7 @@ export const getMyVendorBills = async (req, res) => {
       vendor: vendorContactId
     })
       .populate("sales")
+      .populate("vendor")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({

@@ -50,7 +50,7 @@ export const api = {
   updateUserStatus: (id, status) => fetchJSON(`/users/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
   // Contacts
-  getContacts: () => fetchJSON('/contacts'),
+  getContacts: (params = '') => fetchJSON(`/contacts${params ? `?${params}` : '?limit=1000'}`),
   getContactById: (id) => fetchJSON(`/contacts/${id}`),
   createContact: (data) => fetchJSON('/contacts', { method: 'POST', body: JSON.stringify(data) }),
   updateContact: (id, data) => fetchJSON(`/contacts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
@@ -115,7 +115,7 @@ export const api = {
   updatePurchaseOrder: (id, data) => fetchJSON(`/purchase-orders/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   confirmPurchaseOrder: (id) => fetchJSON(`/purchase-orders/${id}/confirm`, { method: 'POST' }),
   cancelPurchaseOrder: (id) => fetchJSON(`/purchase-orders/${id}/cancel`, { method: 'POST' }),
-  createVendorBillFromPO: (id) => fetchJSON(`/purchase-orders/${id}/vendor-bill`, { method: 'POST' }),
+  createVendorBillFromPO: (id, data = {}) => fetchJSON(`/purchase-orders/${id}/vendor-bill`, { method: 'POST', body: JSON.stringify(data) }),
 
   // Vendor Bills
   getVendorBills: () => fetchJSON('/vendor-bills'),

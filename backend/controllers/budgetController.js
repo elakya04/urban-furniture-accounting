@@ -1,5 +1,105 @@
 import Budget from "../models/Budget.js";
 import User from "../models/User.js";
+import Invoice from "../models/Invoice.js";
+import VendorBill from "../models/VendorBill.js";
+import PurchaseOrder from "../models/PurchaseOrder.js";
+
+function computeAchievedForBudget(budget, invoices = [], vendorBills = [], purchaseOrders = []) {
+  if (!budget || !budget.analytics_account) return 0;
+  
+  const rawAnalyticId = typeof budget.analytics_account === 'object' 
+    ? budget.analytics_account._id 
+    : budget.analytics_account;
+  const rawAnalyticName = typeof budget.analytics_account === 'object'
+    ? budget.analytics_account.name
+    : '';
+
+  const analyticId = String(rawAnalyticId || '').toLowerCase().trim();
+  const analyticName = String(rawAnalyticName || '').toLowerCase().trim();
+
+  const startDate = budget.start_date ? new Date(budget.start_date) : null;
+
+  let total = 0;
+
+  if (budget.type === 'INCOME') {
+    invoices.forEach(inv => {
+      const invDate = new Date(inv.invoice_date || inv.createdAt);
+      const isDateValid = (!startDate || isNaN(startDate) || invDate >= startDate);
+      const isStatusValid = ['POSTED', 'PAID', 'CONFIRMED', 'DUE'].includes(String(inv.status || '').toUpperCase());
+
+      if (isDateValid && isStatusValid) {
+        const items = (inv.items && inv.items.length > 0) ? inv.items : (inv.sales?.items || []);
+        let matchFound = false;
+
+        items.forEach(item => {
+          const itemAnalyticId = String(typeof item.budgetAnalytics === 'object' ? item.budgetAnalytics?._id : (item.budgetAnalytics || '')).toLowerCase().trim();
+          const itemAnalyticName = String(typeof item.budgetAnalytics === 'object' ? item.budgetAnalytics?.name : (item.budgetAnalyticsName || item.budgetAnalytics || '')).toLowerCase().trim();
+
+          const isMatch = (itemAnalyticId && (itemAnalyticId === analyticId || itemAnalyticId.includes(analyticId) || analyticId.includes(itemAnalyticId))) ||
+                          (itemAnalyticName && (itemAnalyticName === analyticName || itemAnalyticName.includes(analyticName) || analyticName.includes(itemAnalyticName)));
+
+          if (isMatch) {
+            total += Number(item.total || (item.quantity * item.unitPrice) || 0);
+            matchFound = true;
+          }
+        });
+
+        if (!matchFound) {
+          const invAnalyticId = String(typeof inv.analytics_account === 'object' ? inv.analytics_account?._id : (inv.analytics_account || '')).toLowerCase().trim();
+          if ((invAnalyticId && (invAnalyticId === analyticId || invAnalyticId.includes(analyticId))) || items.length === 0 || items.every(i => !i.budgetAnalytics)) {
+            total += Number(inv.total_amount || inv.total || 0);
+          }
+        }
+      }
+    });
+  } else {
+    // EXPENSE: combine vendor bills and purchase orders (deduplicating converted POs)
+    const activePOs = (purchaseOrders || []).filter(po => {
+      const poIdStr = String(po._id || po.id || '');
+      return !vendorBills.some(vb => String(vb.purchaseOrder || vb.purchase_id || '') === poIdStr);
+    });
+
+    const allExpenseDocs = [...vendorBills, ...activePOs];
+
+    allExpenseDocs.forEach(bill => {
+      const billDate = new Date(bill.bill_date || bill.date || bill.createdAt);
+      const isDateValid = (!startDate || isNaN(startDate) || billDate >= startDate);
+      const isStatusValid = ['POSTED', 'PAID', 'CONFIRMED', 'DUE', 'DRAFT'].includes(String(bill.status || '').toUpperCase());
+
+      if (isDateValid && isStatusValid) {
+        const items = (bill.items && bill.items.length > 0) ? bill.items : (bill.sales?.items || []);
+        let matchFound = false;
+        let matchedItemTotal = 0;
+
+        items.forEach(item => {
+          const itemAnalyticId = String(typeof item.budgetAnalytics === 'object' ? item.budgetAnalytics?._id : (item.budgetAnalytics || '')).toLowerCase().trim();
+          const itemAnalyticName = String(typeof item.budgetAnalytics === 'object' ? item.budgetAnalytics?.name : (item.budgetAnalyticsName || item.budgetAnalytics || '')).toLowerCase().trim();
+
+          const isMatch = (itemAnalyticId && (itemAnalyticId === analyticId || itemAnalyticId.includes(analyticId) || analyticId.includes(itemAnalyticId))) ||
+                          (itemAnalyticName && (itemAnalyticName === analyticName || itemAnalyticName.includes(analyticName) || analyticName.includes(itemAnalyticName)));
+
+          if (isMatch) {
+            matchedItemTotal += Number(item.total || (item.quantity * item.unitPrice) || 0);
+            matchFound = true;
+          }
+        });
+
+        if (matchFound) {
+          total += matchedItemTotal;
+        } else {
+          const billAnalyticId = String(typeof bill.analytics_account === 'object' ? bill.analytics_account?._id : (bill.analytics_account || '')).toLowerCase().trim();
+          const salesAnalyticId = String(typeof bill.sales?.analytics_account === 'object' ? bill.sales?.analytics_account?._id : (bill.sales?.analytics_account || '')).toLowerCase().trim();
+
+          if ((billAnalyticId && billAnalyticId === analyticId) || (salesAnalyticId && salesAnalyticId === analyticId) || items.length === 0 || items.every(i => !i.budgetAnalytics)) {
+            total += Number(bill.total || bill.total_amount || bill.amount_paid || 0);
+          }
+        }
+      }
+    });
+  }
+
+  return total;
+}
 
 export const createBudget = async (req, res) => {
   const {
@@ -186,22 +286,33 @@ export const getBudgets = async (req, res) => {
       timestamp: new Date().toISOString()
     }));
 
-    const budgets = await Budget.find(filter)
-      .populate("analytics_account", "name type")
-      .populate("responsiblePerson", "role")
-      .sort({ createdAt: -1 });
+    const [budgets, invoices, vendorBills, purchaseOrders] = await Promise.all([
+      Budget.find(filter)
+        .populate("analytics_account", "name type")
+        .populate("responsiblePerson", "role")
+        .sort({ createdAt: -1 }),
+      Invoice.find(),
+      VendorBill.find().populate("sales"),
+      PurchaseOrder.find()
+    ]);
+
+    const computedBudgets = budgets.map(b => {
+      const budgetObj = b.toObject();
+      budgetObj.achieved_amount = computeAchievedForBudget(budgetObj, invoices, vendorBills, purchaseOrders);
+      return budgetObj;
+    });
 
     console.log(JSON.stringify({
       level: "info",
       event: "budgets_fetched",
-      count: budgets.length,
+      count: computedBudgets.length,
       timestamp: new Date().toISOString()
     }));
 
     return res.status(200).json({
       success: true,
-      count: budgets.length,
-      budgets
+      count: computedBudgets.length,
+      budgets: computedBudgets
     });
 
   } catch (error) {

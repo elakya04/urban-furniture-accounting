@@ -31,18 +31,34 @@ export function openRazorpayCheckout({ keyId, orderId, amount, currency, invoice
       return reject(new Error('Razorpay SDK failed to load. Please check your internet connection.'));
     }
 
+    if (!orderId) {
+      return reject(new Error('Razorpay Order ID is required to open checkout.'));
+    }
+
+    // Build sanitized prefill object: only include valid, non-empty fields
+    const prefill = {};
+    const cleanName = (user?.name || customerName || '').trim();
+    if (cleanName) {
+      prefill.name = cleanName;
+    }
+
+    const rawEmail = (user?.email || '').trim();
+    if (rawEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      prefill.email = rawEmail;
+    }
+
+    const rawContact = String(user?.mobile || user?.phone || '').replace(/\D/g, '');
+    if (rawContact.length === 10) {
+      prefill.contact = rawContact;
+    } else if (rawContact.length === 12 && rawContact.startsWith('91')) {
+      prefill.contact = rawContact.slice(2);
+    }
+
     const options = {
       key: keyId,
-      amount: String(amount),
-      currency: currency || 'INR',
-      name: 'Urban Furniture',
-      description: `Payment for Invoice ${invoiceNumber || ''}`,
       order_id: orderId,
-      prefill: {
-        name: user?.name || customerName || '',
-        email: user?.email || '',
-        contact: user?.mobile || user?.phone || ''
-      },
+      name: 'Urban Furniture',
+      description: invoiceNumber ? `Payment for Invoice ${invoiceNumber}` : 'Urban Furniture Payment',
       theme: { color: '#d97706' }, // Urban Furniture amber theme
       handler: function (response) {
         resolve(response);
@@ -54,11 +70,20 @@ export function openRazorpayCheckout({ keyId, orderId, amount, currency, invoice
       }
     };
 
-    const rzp = new window.Razorpay(options);
-    rzp.on('payment.failed', function (response) {
-      reject(new Error(response?.error?.description || 'Payment failed'));
-    });
-    rzp.open();
+    if (Object.keys(prefill).length > 0) {
+      options.prefill = prefill;
+    }
+
+    try {
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        console.warn('[RAZORPAY PAYMENT FAILED EVENT]:', response?.error);
+        reject(new Error(response?.error?.description || 'Payment failed'));
+      });
+      rzp.open();
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 

@@ -5,11 +5,12 @@ import { Table } from '../../components/common/Table';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
 import { OrderLineItemsTable } from '../../components/forms/OrderLineItemsTable';
-import { Plus, Truck, CheckCircle, FileText, ArrowRight } from 'lucide-react';
+import { Plus, Truck, CheckCircle, FileText, ArrowRight, AlertTriangle } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
+import { computeBudgetMetrics } from '../../utils/accountingMath';
 
 export const PurchaseOrdersPage = () => {
-  const { purchaseOrders, contacts, products, coa, analyticAccounts, addPurchaseOrder, confirmPurchaseOrder } = useApp();
+  const { purchaseOrders, contacts, products, coa, analyticAccounts, budgets = [], invoices = [], vendorBills = [], addPurchaseOrder, confirmPurchaseOrder, showToast } = useApp();
   const { isContact, isAdmin, isAccountant } = useAuth();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState(null);
@@ -17,13 +18,75 @@ export const PurchaseOrdersPage = () => {
   const [vendor, setVendor] = useState('');
   const [items, setItems] = useState([]);
 
+  // Check if any items in the PO form exceed the committed budget limit for their Analytic Account
+  const getBudgetExceededWarnings = () => {
+    if (!items || items.length === 0) return [];
+    
+    const totalsByAnalytics = {};
+    items.forEach(i => {
+      const analyticKey = String(typeof i.budgetAnalytics === 'object' ? i.budgetAnalytics?._id : (i.budgetAnalytics || '')).toLowerCase().trim();
+      if (!analyticKey) return;
+      totalsByAnalytics[analyticKey] = (totalsByAnalytics[analyticKey] || 0) + Number(i.total || (i.quantity * i.unitPrice) || 0);
+    });
+
+    const warnings = [];
+
+    Object.entries(totalsByAnalytics).forEach(([analyticKey, formTotal]) => {
+      const matchingBudget = budgets.find(b => {
+        const bId = String(typeof b.analytics_account === 'object' ? b.analytics_account?._id : (b.analytics_account || '')).toLowerCase().trim();
+        const bName = String(typeof b.analytics_account === 'object' ? b.analytics_account?.name : '').toLowerCase().trim();
+        return (bId && (bId === analyticKey || bId.includes(analyticKey) || analyticKey.includes(bId))) ||
+               (bName && (bName === analyticKey || bName.includes(analyticKey) || analyticKey.includes(bName)));
+      });
+
+      if (matchingBudget) {
+        const { achievedAmount } = computeBudgetMetrics(matchingBudget, invoices, vendorBills, purchaseOrders);
+        const committed = Number(matchingBudget.committed_amount || 0);
+        const projectedTotal = achievedAmount + formTotal;
+
+        if (projectedTotal > committed) {
+          const analyticName = typeof matchingBudget.analytics_account === 'object' ? matchingBudget.analytics_account.name : matchingBudget.name;
+          const remaining = Math.max(0, committed - achievedAmount);
+          warnings.push({
+            budgetName: matchingBudget.name,
+            analyticName,
+            formTotal,
+            committed,
+            achievedAmount,
+            remaining,
+            excess: projectedTotal - committed
+          });
+        }
+      }
+    });
+
+    return warnings;
+  };
+
+  const budgetWarnings = getBudgetExceededWarnings();
+
+  // Filter strictly for Vendor contacts (User.role === 'CONTACT' && User.contact_role === 'VENDOR' / 'BOTH')
+  const allNonStaffContacts = contacts.filter(c => c.userType !== 'ADMIN' && c.userType !== 'ACCOUNTANT');
+
+  const vendorContacts = allNonStaffContacts.filter(c => {
+    const role = (c.user?.contact_role || c.contactRole || '').toUpperCase();
+    if (role === 'VENDOR' || role === 'BOTH') return true;
+    const userType = (c.userType || '').toUpperCase();
+    if (userType === 'VENDOR' || userType === 'BOTH') return true;
+    if (c.loginId?.startsWith('ven_')) return true;
+    if (/timber|supplier|wood|hardwood|vendor|supplier/i.test(c.name || '')) return true;
+    if (role === 'CUSTOMER' || userType === 'CUSTOMER' || c.loginId?.startsWith('cus_')) return false;
+    return true;
+  });
+
+  const displayVendors = vendorContacts.length > 0 ? vendorContacts : allNonStaffContacts;
+
   // Dynamically synchronize defaults once master data loads
   useEffect(() => {
-    if (!vendor && contacts.length > 0) {
-      const v = contacts.find(c => c.userType === 'VENDOR' || c.contactRole === 'VENDOR' || c.contactRole === 'BOTH') || contacts[0];
-      if (v) setVendor(v._id);
+    if (!vendor && displayVendors.length > 0) {
+      setVendor(displayVendors[0]._id);
     }
-  }, [contacts, vendor]);
+  }, [displayVendors, vendor]);
 
   useEffect(() => {
     if (products.length > 0 && items.length === 0) {
@@ -45,6 +108,10 @@ export const PurchaseOrdersPage = () => {
     e.preventDefault();
     const vendorObj = contacts.find(c => c._id === vendor);
     const total_amount = items.reduce((sum, i) => sum + Number(i.total || 0), 0);
+
+    if (budgetWarnings.length > 0) {
+      showToast(`Warning: Purchase Order total exceeds committed budget limit by ${formatCurrency(budgetWarnings[0].excess)}!`, 'warning');
+    }
 
     addPurchaseOrder({
       vendor,
@@ -126,10 +193,13 @@ export const PurchaseOrdersPage = () => {
               <select
                 value={vendor}
                 onChange={(e) => setVendor(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none bg-white font-medium"
               >
-                {contacts.map(c => (
-                  <option key={c._id} value={c._id}>{c.name} ({c.userType})</option>
+                <option value="">-- Select Vendor --</option>
+                {displayVendors.map(c => (
+                  <option key={c._id} value={c._id}>
+                    {c.name} {c.user?.contact_role ? `(${c.user.contact_role})` : c.contactRole ? `(${c.contactRole})` : ''}
+                  </option>
                 ))}
               </select>
             </div>
@@ -143,6 +213,32 @@ export const PurchaseOrdersPage = () => {
               />
             </div>
           </div>
+
+          {/* Pop-up Banner Notification when budget limit is exceeded */}
+          {budgetWarnings.length > 0 && (
+            <div className="bg-rose-50 border-2 border-rose-300 rounded-xl p-4 text-xs text-rose-900 space-y-2 shadow-xs">
+              <div className="flex items-center gap-2 font-bold text-rose-700 text-sm">
+                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                <span>Budget Limit Exceeded Warning!</span>
+              </div>
+              {budgetWarnings.map((w, idx) => (
+                <div key={idx} className="bg-white/80 p-2.5 rounded-lg border border-rose-200 text-slate-700 space-y-1">
+                  <div className="font-semibold text-rose-800">
+                    Analytic Account: <span className="font-bold">{w.analyticName}</span> (<span className="text-slate-600 font-medium">{w.budgetName}</span>)
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-600 text-[11px]">
+                    <span>Current Items Total: <strong className="text-slate-900">{formatCurrency(w.formTotal)}</strong></span>
+                    <span>Committed Limit: <strong className="text-slate-900">{formatCurrency(w.committed)}</strong></span>
+                    <span>Live Achieved: <strong className="text-amber-700">{formatCurrency(w.achievedAmount)}</strong></span>
+                    <span>Available Balance: <strong className="text-emerald-700">{formatCurrency(w.remaining)}</strong></span>
+                  </div>
+                  <div className="text-rose-600 font-bold text-[11px]">
+                    ⚠ Adding these items exceeds committed budget limit by {formatCurrency(w.excess)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold uppercase text-slate-500 mb-2">Purchase Line Items</label>

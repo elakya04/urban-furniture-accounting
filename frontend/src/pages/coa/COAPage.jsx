@@ -87,7 +87,7 @@ export const COAPage = () => {
               required
               value={formData.accountName}
               onChange={(e) => setFormData({ ...formData, accountName: e.target.value })}
-              placeholder="e.g. Sales Income A/c / Office Supplies A/c"
+              placeholder="Enter account name"
               className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
             />
           </div>

@@ -3,15 +3,15 @@ import { useApp } from '../../context/AppContext';
 import { Table } from '../../components/common/Table';
 import { Modal } from '../../components/common/Modal';
 import { Card } from '../../components/common/Card';
-import { Archive, Plus, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react';
+import { Archive, Plus, ArrowUpRight, ArrowDownRight, RefreshCw, Package } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 
 export const StockPage = () => {
   const { products, adjustStock } = useApp();
   const [isAdjModalOpen, setIsAdjModalOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState(products[0]?._id || '');
-  const [adjQty, setAdjQty] = useState('5');
-  const [reason, setReason] = useState('Physical Audit Count Adjustment');
+  const [adjQty, setAdjQty] = useState('');
+  const [reason, setReason] = useState('');
 
   const handleAdjSubmit = (e) => {
     e.preventDefault();
@@ -25,7 +25,13 @@ export const StockPage = () => {
       header: 'Product',
       cell: (row) => (
         <div className="flex items-center gap-3">
-          <img src={row.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover border border-slate-200" />
+          {(row.productImage || row.imageUrl) ? (
+            <img src={row.productImage || row.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover border border-slate-200" />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+              <Package className="w-4 h-4" />
+            </div>
+          )}
           <div>
             <div className="font-semibold text-slate-800">{row.productName}</div>
             <div className="text-xs text-slate-400">{row.category}</div>
@@ -78,7 +84,7 @@ export const StockPage = () => {
               required
               value={adjQty}
               onChange={(e) => setAdjQty(e.target.value)}
-              placeholder="e.g. +5 or -2"
+              placeholder="Enter quantity"
               className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 font-semibold focus:outline-none"
             />
           </div>
@@ -90,6 +96,7 @@ export const StockPage = () => {
               required
               value={reason}
               onChange={(e) => setReason(e.target.value)}
+              placeholder="Enter adjustment reason"
               className="w-full border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
             />
           </div>
